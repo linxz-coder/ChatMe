@@ -1,0 +1,24 @@
+/*
+ Localizable.strings
+ ChatMe
+ 
+ Created by 凡学子 on 2025/3/6.
+ 
+ */
+
+"interface_language" = "Interface Language";
+"general" = "General";
+"models" = "Models";
+"prompts" = "Prompts";
+"plugins" = "Plugins";
+"advanced" = "Advanced";
+"search" = "Search";
+"assistant" = "Assistant";
+"default" = "Default";
+"conversation" = "Conversation";
+"askSomeThing" = "Ask anything";
+"send" = "Send";
+"chooseFiles" = "Choose Files";
+"thinkingMode" = "Thinking Mode";
+"thinkingModeIsON" = "Thinking Mode is ON";
+"imageModel" = "Image Generation";
