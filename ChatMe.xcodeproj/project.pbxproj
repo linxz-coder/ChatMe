@@ -64,6 +64,7 @@
 		8FB3B5412D8172C5008C59E0 /* ArtifactPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactPreview.swift; sourceTree = "<group>"; };
 		8FB3B5432D81900D008C59E0 /* ArtifactMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactMessageView.swift; sourceTree = "<group>"; };
 		8FD052892DB0AA7D00C208B2 /* PreviewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewButton.swift; sourceTree = "<group>"; };
+		8FD0528B2DB644B200C208B2 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		8FD85F242D88041E00E41081 /* FileUploadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUploadManager.swift; sourceTree = "<group>"; };
 		8FD85F262D88045800E41081 /* FileAttachmentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAttachmentPicker.swift; sourceTree = "<group>"; };
 		8FD85F3C2D8BC00100E41081 /* ThemeExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeExtensions.swift; sourceTree = "<group>"; };
@@ -128,6 +129,7 @@
 		8FF2C9F82D7053F6005E2D58 = {
 			isa = PBXGroup;
 			children = (
+				8FD0528B2DB644B200C208B2 /* README.md */,
 				8FF2CA192D7054E6005E2D58 /* ChatMe */,
 				8FF2CA022D7053F6005E2D58 /* Products */,
 			);
