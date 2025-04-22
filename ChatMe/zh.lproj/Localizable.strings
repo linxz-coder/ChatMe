@@ -22,3 +22,12 @@
 "thinkingMode" = "思考模式";
 "thinkingModeIsON" = "思考模式已启用";
 "imageModel" = "图像生成模型";
+"selectedFiles" = "已选文件";
+"clear" = "清空";
+"generatingImages..." = "图片生成中...";
+"thinkingProcess: " = "思考过程：";
+"save_image" = "保存图片";
+"copy_image_url" = "复制图片链接";
+"rightClickToSave" = "右键保存图片，以防图片链接失效。";
+"imageFailed" = "图片加载失败";
+"reload" = "重新加载";

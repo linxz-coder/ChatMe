@@ -14,7 +14,7 @@ struct FileAttachmentPicker: View {
     
     var body: some View {
         VStack {
-            // 文件选择器按钮
+            // Choose files
             Button {
                 showFilePicker = true
             } label: {
@@ -36,20 +36,20 @@ struct FileAttachmentPicker: View {
                 switch result {
                 case .success(let urls):
                     for url in urls {
-                        // 获取安全访问权限
+                        // Obtain secure access privileges
                         if url.startAccessingSecurityScopedResource() {
                             fileManager.addFile(path: url)
                             url.stopAccessingSecurityScopedResource()
                         } else {
-                            fileManager.errorMessage = "无法访问文件: \(url.lastPathComponent)"
+                            fileManager.errorMessage = "Unable to access file: \(url.lastPathComponent)"
                         }
                     }
                 case .failure(let error):
-                    fileManager.errorMessage = "选择文件失败: \(error.localizedDescription)"
+                    fileManager.errorMessage = "Failed to select file: \(error.localizedDescription)"
                 }
             }
             
-            // 显示错误信息
+            // Display error message
             if let errorMessage = fileManager.errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -57,7 +57,7 @@ struct FileAttachmentPicker: View {
                     .padding(.top, 4)
             }
             
-            // 显示已选文件列表
+            // Display selected file list
             if !fileManager.uploadedFiles.isEmpty {
                 UploadedFilesList()
             }
@@ -65,30 +65,30 @@ struct FileAttachmentPicker: View {
     }
 }
 
-// 已上传文件列表视图
+// Uploaded file list view
 struct UploadedFilesList: View {
     @ObservedObject var fileManager = FileUploadManager.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("已选文件")
+                LocalizedText(key: "selectedFiles")
                     .font(.headline)
                 
                 Spacer()
                 
-                // 清空按钮
+                // Clear Button
                 Button {
                     fileManager.removeAllFiles()
                 } label: {
-                    Text("清空")
+                    LocalizedText(key: "clear")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
             }
             .padding(.horizontal)
             
-            // 文件列表
+            // List of Files
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     ForEach(fileManager.uploadedFiles.indices, id: \.self) { index in
@@ -101,21 +101,19 @@ struct UploadedFilesList: View {
             .frame(maxHeight: 200)
         }
         .padding(.vertical, 8)
-//        .background(Color(red: 0.95, green: 0.95, blue: 0.95))
-        
-                .background(Color(light: Color(red: 0.95, green: 0.95, blue: 0.95),
-                                 dark: Color(red: 0.25, green: 0.25, blue: 0.27)))
+        .background(Color(light: Color(red: 0.95, green: 0.95, blue: 0.95),
+                          dark: Color(red: 0.25, green: 0.25, blue: 0.27)))
         .cornerRadius(8)
     }
 }
 
-// 单个文件项视图
+// Single file item view
 struct FileItemView: View {
     let file: UploadedFile
     let index: Int
     @ObservedObject var fileManager = FileUploadManager.shared
     
-    // 获取文件大小的易读格式
+    // Obtain the file size in a readable format
     private var formattedSize: String {
         let byteCountFormatter = ByteCountFormatter()
         byteCountFormatter.allowedUnits = [.useKB, .useMB]
@@ -123,7 +121,7 @@ struct FileItemView: View {
         return byteCountFormatter.string(fromByteCount: file.size)
     }
     
-    // 获取文件图标
+    // Retrieve file icon
     private var fileIcon: String {
         switch file.type {
         case .pdf:
@@ -145,7 +143,7 @@ struct FileItemView: View {
         }
     }
     
-    // 根据文件类型获取图标颜色
+    // According to the file type to obtain icon color
     private var iconColor: Color {
         switch file.type {
         case .pdf:
@@ -169,11 +167,11 @@ struct FileItemView: View {
     
     var body: some View {
         HStack {
-            // 文件图标
+            // File Icon
             Image(systemName: fileIcon)
                 .foregroundColor(iconColor)
             
-            // 文件名和大小
+            // File name and size
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name)
                     .font(.subheadline)
@@ -184,7 +182,7 @@ struct FileItemView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    // 显示文件状态
+                    // File status
                     if file.isUploading {
                         ProgressView()
                             .scaleEffect(0.5)
@@ -204,7 +202,7 @@ struct FileItemView: View {
             
             Spacer()
             
-            // 删除按钮
+            // Delete button
             Button {
                 fileManager.removeFile(at: index)
             } label: {
@@ -215,13 +213,40 @@ struct FileItemView: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
-//        .background(Color.white)
-                .background(Color(light: .white, dark: Color(red: 0.3, green: 0.3, blue: 0.32)))
-                .foregroundColor(Color(light: .primary, dark: .white))
+        .background(Color(light: .white, dark: Color(red: 0.3, green: 0.3, blue: 0.32)))
+        .foregroundColor(Color(light: .primary, dark: .white))
         .cornerRadius(4)
     }
 }
 
 #Preview {
     FileAttachmentPicker()
+        .environmentObject(FileUploadManager.shared)
+        .environmentObject(LocalizationManager.shared)
+        .frame(width: 300, height: 300)
+}
+
+#Preview {
+    // Create a sample file for preview
+    let sampleFile = UploadedFile(
+        name: "sample_document.pdf",
+        path: URL(string: "file:///sample/path/document.pdf")!,
+        size: 1024 * 1024 * 2, // 2MB
+        type: .pdf,
+        fileId: "sample_id_123",
+        isUploading: false,
+        
+        errorMessage: nil
+    )
+    
+    
+    FileItemView(file: sampleFile, index: 0).environmentObject(LocalizationManager.shared)
+        .frame(width: 300, height: 300)
+}
+
+#Preview{
+    UploadedFilesList()
+        .environmentObject(FileUploadManager.shared)
+        .environmentObject(LocalizationManager.shared)
+        .frame(width: 300, height: 300)
 }

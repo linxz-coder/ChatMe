@@ -7,24 +7,25 @@
 
 import SwiftUI
 import MarkdownUI
+import SwiftData
 
 struct MessageView: View {
     let message: ChatMessage
     @ObservedObject var viewModel: ChatViewModel
     @State private var showDot = false
     @Binding var userFinishedInput: Bool
-    @State private var isMessageExpanded: Bool = false  // 默认裁剪用户消息
+    @State private var isMessageExpanded: Bool = false  // Default crop user message
     @State private var isLocalThinkingExpanded: Bool = true
-    @State private var imageLoadingID = UUID() // 添加状态变量用于强制重新加载图片
+    @State private var imageLoadingID = UUID() // Add a status variable to force reload the image
     @ObservedObject var artifactViewModel: ArtifactViewModel
     
     
-    // 新增属性，获取当前选中的模型
+    // Get Selected Model
     private var currentModel: Model? {
         viewModel.modelSettings.selectedModel
     }
     
-    // 确保modelIcon函数可用
+    // Ensure the modelIcon function is available
     private func modelIcon(for provider: String) -> some View {
         let iconName: String
         
@@ -59,7 +60,7 @@ struct MessageView: View {
             .frame(width: 20, height: 20)
     }
     
-    // 初始化时从消息加载展开状态
+    // Initialization: Load expanded state from message
     init(message: ChatMessage, viewModel: ChatViewModel, userFinishedInput: Binding<Bool>, artifactViewModel: ArtifactViewModel) {
         self.message = message
         self.viewModel = viewModel
@@ -67,7 +68,7 @@ struct MessageView: View {
         self.artifactViewModel = artifactViewModel
         
         
-        // 从消息中初始化本地状态
+        // Initialize local state from the message
         if let updatedMessage = viewModel.chatMessages.first(where: { $0.id == message.id }) {
             self._isLocalThinkingExpanded = State(initialValue: updatedMessage.isThinkingExpanded)
         } else {
@@ -76,7 +77,7 @@ struct MessageView: View {
     }
     
     private var currentMessageContent: String {
-        // 找到viewModel中相应的消息
+        // Find the current message in the viewModel.
         if let updatedMessage = viewModel.chatMessages.first(where: { $0.id == message.id }) {
             return updatedMessage.chat_content
         }
@@ -84,16 +85,16 @@ struct MessageView: View {
         return message.chat_content
     }
     
-    // 获取当前消息的思考内容
+    // Obtain the current message's thinking content
     private var currentThinkingContent: String {
-        // 如果是正在流式输出的最后一条消息，使用 viewModel 的 thinkingText
+        // If it is streaming, use the viewModel's thinkingText
         if message.id == viewModel.chatMessages.last?.id &&
             message.character == "ai" &&
             viewModel.isLoading {
             return viewModel.thinkingText
         }
         
-        // 否则从消息本身获取已保存的思考内容
+        // Otherwise, obtain the saved thinking content
         if let updatedMessage = viewModel.chatMessages.first(where: { $0.id == message.id }) {
             return updatedMessage.thinking_content
         }
@@ -103,7 +104,7 @@ struct MessageView: View {
     
     var body: some View {
         HStack(alignment: .top) {
-            // 用户消息
+            // User Message
             if message.character == "user" {
                 Spacer()
                 
@@ -114,20 +115,18 @@ struct MessageView: View {
                     )
                 }
             }
-            // AI消息
+            // AI Message
             else {
-                //MARK: - 分情况显示AI头像
-                // 使用数据库provider_name对应的模型的图标
-                // 首先尝试从消息中获取provider_name
+                //MARK: - Display AI avatars by case
+                // Firstly, try to obtain the provider_name from the message.
                 if let messageProviderName = getProviderNameFromMessage(message), !messageProviderName.isEmpty {
-                    // 使用消息自己的provider_name
                     modelIcon(for: messageProviderName)
                         .foregroundStyle(.gray)
                 }
                 
-                // 如果是当前会话中最后一条AI消息(包括刚刚完成生成的消息)
+                // If it is the last AI message in the current session (including the message just generated)
                 else if message.id == viewModel.chatMessages.last(where: { $0.character == "ai" })?.id {
-                    // 对于当前会话的最后一条AI消息，总是使用当前选中的模型图标
+                    // For the last AI message in the current session, always use the currently selected model icon.
                     if let model = currentModel {
                         modelIcon(for: model.providerName)
                             .foregroundStyle(.gray)
@@ -146,7 +145,7 @@ struct MessageView: View {
                         modelIcon(for: model.providerName)
                             .foregroundStyle(.gray)
                     } else {
-                        // 如果没有选中模型，使用默认图标
+                        // If no model is selected, use the default icon.
                         Image(systemName: "person.circle.fill")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -154,7 +153,7 @@ struct MessageView: View {
                             .foregroundStyle(.gray)
                     }
                 }
-                // 对于消息中没有provider_name的历史消息，使用默认图标
+                // For historical messages that do not contain provider_name in the message, use the default icon.
                 else {
                     Image(systemName: "person.circle.fill")
                         .resizable()
@@ -163,23 +162,23 @@ struct MessageView: View {
                         .foregroundStyle(.gray)
                 }
                 
-                //MARK: - 显示回复信息
+                //MARK: - Display Answer Contents
                 if message.id == viewModel.chatMessages.last?.id && message.character == "ai" && viewModel.isLoading && viewModel.responseText.isEmpty && viewModel.thinkingText.isEmpty {
                     HStack{
-                        // 展示闪烁的黑点
+                        // Displaying flickering black dots
                         Circle()
                             .fill(Color.black.opacity(showDot ? 1 : 0))
                             .frame(width: 6, height: 6)
                             .padding(.top, 8)
                             .onAppear {
-                                // 开始闪烁动画
+                                // Start flickering animation
                                 withAnimation(Animation.easeInOut(duration: 0.6).repeatForever()) {
                                     showDot.toggle()
                                 }
                             }
                         
                         if(viewModel.modelSettings.selectedModel?.modelType == .image){
-                            Text("图片生成中...")
+                            LocalizedText(key: "generatingImages...")
                                 .font(.footnote)
                                 .foregroundColor(.gray)
                                 .padding(.top, 4)
@@ -188,23 +187,23 @@ struct MessageView: View {
                 } else {
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        // 显示思考过程。
+                        // Display thinking process
                         if message.character == "ai" && !currentThinkingContent.isEmpty {
                             
                             VStack(alignment: .leading) {
                                 Button {
-                                    // 切换当前消息的本地状态
+                                    // Switch the status of the current message
                                     isLocalThinkingExpanded.toggle()
                                     
-                                    // 同时更新消息模型中的状态（可选，用于持久化）
+                                    // update the status in the message model (for persistence)
                                     if let index = viewModel.chatMessages.firstIndex(where: { $0.id == message.id }) {
-                                        var updatedMessage = viewModel.chatMessages[index]
+                                        let updatedMessage = viewModel.chatMessages[index]
                                         updatedMessage.isThinkingExpanded = isLocalThinkingExpanded
                                         viewModel.chatMessages[index] = updatedMessage
                                     }
                                 } label: {
                                     HStack {
-                                        Text("思考过程：")
+                                        LocalizedText(key: "thinkingProcess: ")
                                             .font(.headline)
                                         Spacer()
                                         Image(systemName: isLocalThinkingExpanded ? "chevron.up" : "chevron.down")
@@ -224,9 +223,9 @@ struct MessageView: View {
                                             .padding(.init(top: 8, leading: 12, bottom: 8, trailing: 12))
                                             .background(Color.gray.opacity(0.1))
                                             .cornerRadius(8)
-                                        // 使用不引起位置变化的转场动画
+                                        // Use transition animations that do not cause a change in position.
                                             .transition(.opacity)
-                                        // 保持固定高度，避免高度突变
+                                        // Maintain a fixed height, avoid sudden changes in height.
                                             .animation(.linear(duration: 0.2), value: currentThinkingContent)
                                         
                                     }
@@ -235,7 +234,7 @@ struct MessageView: View {
                             }
                         }
                         
-                        // 显示响应文本 - 流式输出
+                        // Display response text - Streaming
                         if message.id == viewModel.chatMessages.last?.id && message.character == "ai" && viewModel.isLoading && currentMessageContent.isEmpty {
                             Markdown(viewModel.responseText)
                                 .markdownTheme(.fancyWithDiff)
@@ -261,10 +260,10 @@ struct MessageView: View {
                                     .lineSpacing(5)
                                     .textSelection(.enabled)
                             }
-
                             
                             
-                            // 显示图片（如果有）
+                            
+                            // Display pictures (if any)
                             if !message.imageUrl.isEmpty {
                                 AsyncImage(url: URL(string: message.imageUrl)) { phase in
                                     switch phase {
@@ -279,33 +278,42 @@ struct MessageView: View {
                                             .cornerRadius(12)
                                             .contextMenu {
                                                 Button {
-                                                    // 保存图片到用户选择的位置
+                                                    // Save the image to the location selected by the user.
                                                     saveImage(imageURL: message.imageUrl)
                                                 } label: {
-                                                    Label("保存图片", systemImage: "arrow.down.circle")
+                                                    Label {
+                                                        LocalizedText(key: "save_image")
+                                                    } icon: {
+                                                        Image(systemName: "arrow.down.circle")
+                                                    }
                                                 }.labelStyle(.titleAndIcon)
                                                 
                                                 Button {
-                                                    // 复制图片链接到剪贴板
+                                                    // Copy the image link to the clipboard
                                                     copyImageURL(message.imageUrl)
                                                 } label: {
-                                                    Label("复制图片链接", systemImage: "document.on.document")
+                                                    
+                                                    Label {
+                                                        LocalizedText(key: "copy_image_url")
+                                                    } icon: {
+                                                        Image(systemName: "document.on.document")
+                                                    }
                                                 }.labelStyle(.titleAndIcon)
                                             }
-                                        Text("右键保存图片，以防图片链接失效。")
+                                        LocalizedText(key: "rightClickToSave")
                                             .font(.footnote)
                                     case .failure:
                                         HStack{
-                                            Text("图片加载失败")
+                                            LocalizedText(key: "imageFailed")
                                                 .foregroundColor(.red)
                                                 .padding()
                                                 .background(Color.red.opacity(0.1))
                                                 .cornerRadius(8)
                                             Button {
-                                                //加载
-                                                imageLoadingID = UUID() // 生成新的ID触发AsyncImage重新加载
+                                                //Reload
+                                                imageLoadingID = UUID() // Generate a new ID to trigger AsyncImage to reload
                                             } label: {
-                                                Text("重新加载")
+                                                LocalizedText(key: "reload")
                                             }.buttonStyle(.bordered)
                                         }
                                     @unknown default:
@@ -325,64 +333,61 @@ struct MessageView: View {
         .padding(.horizontal)
     }
     
-    // 保存图片到用户选择的位置
+    // Save the image to the location selected by the user.
     private func saveImage(imageURL: String) {
         guard let url = URL(string: imageURL) else {
-            print("无效的图片URL")
+            print("Image URL Failed")
             return
         }
         
-        // 从URL获取建议的文件名
+        // Extract suggested filename from URL
         let suggestedFileName = url.lastPathComponent
         
-        // 创建保存面板
+        // Create Save Panel
         let savePanel = NSSavePanel()
         savePanel.canCreateDirectories = true
         savePanel.showsTagField = false
         savePanel.nameFieldStringValue = suggestedFileName
         savePanel.allowedContentTypes = [.jpeg, .png]
         
-        // 显示保存面板
+        // Display Save Panel
         savePanel.begin { response in
             if response == .OK, let saveURL = savePanel.url {
-                // 下载图片并保存
+                // Download the image and save
                 URLSession.shared.dataTask(with: url) { data, response, error in
                     if let error = error {
-                        print("下载图片失败: \(error.localizedDescription)")
+                        print("Image Downloaded Failed: \(error.localizedDescription)")
                         return
                     }
                     
                     guard let data = data else {
-                        print("没有接收到图片数据")
+                        print("No Image Data")
                         return
                     }
                     
                     do {
                         try data.write(to: saveURL)
-                        print("图片已保存到: \(saveURL.path)")
+                        print("Image is saved to: \(saveURL.path)")
                     } catch {
-                        print("保存图片失败: \(error.localizedDescription)")
+                        print("Image saved failed: \(error.localizedDescription)")
                     }
                 }.resume()
             }
         }
     }
     
-    // 复制图片链接到剪贴板
+    // Copy the image link to the clipboard
     private func copyImageURL(_ imageURL: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(imageURL, forType: .string)
-        print("图片URL已复制到剪贴板")
+        print("Image copyed to clipboard.")
     }
     
-    // 从消息中获取供应商名称
+    // Extract provider name from the message
     private func getProviderNameFromMessage(_ message: ChatMessage) -> String? {
-        // 找到viewModel中相应的消息以获取最新数据
+        //Find the corresponding message in viewModel to obtain the latest data
         if let updatedMessage = viewModel.chatMessages.first(where: { $0.id == message.id }) {
-            // 从ChatService中获取消息时，provider_name应该已经被保存
-            // 您需要确保ChatService的getMessages方法正确地检索和设置这个属性
-            // 可以通过在ChatMessage结构体中添加providerName属性
             return updatedMessage.providerName
         }
         return nil
@@ -393,7 +398,6 @@ struct MessageView: View {
 
 //扩展代码块
 extension Theme {
-    
     
     static let fancy = Theme()
         .text {
@@ -696,103 +700,68 @@ extension View {
     }
 }
 
-import SwiftUI
-import MarkdownUI
 
-// 扩展MessageView添加对ArtifactViewModel的支持
-//extension MessageView {
-//    // 添加对ArtifactViewModel的支持(可选参数)
-//    init(message: ChatMessage, viewModel: ChatViewModel, userFinishedInput: Binding<Bool>, artifactViewModel: ArtifactViewModel? = nil) {
-//        self.message = message
-//        self.viewModel = viewModel
-//        self._userFinishedInput = userFinishedInput
-//        
-//        // 从消息中初始化本地状态
-//        if let updatedMessage = viewModel.chatMessages.first(where: { $0.id == message.id }) {
-//            self._isLocalThinkingExpanded = State(initialValue: updatedMessage.isThinkingExpanded)
-//        } else {
-//            self._isLocalThinkingExpanded = State(initialValue: true)
-//        }
-//        
-//        // 如果提供了artifactViewModel，提取代码块
-//        if let artifactViewModel = artifactViewModel, message.character == "ai" {
-//            artifactViewModel.extractCodeBlocks(from: message.chat_content)
-//        }
-//    }
-//    
-//    // 创建自定义主题，包含预览按钮
-//    func customMarkdownTheme(artifactViewModel: ArtifactViewModel? = nil) -> Theme {
-//        var theme = Theme.fancyWithDiff
-//        
-//        // 如果提供了artifactViewModel，为代码块添加预览按钮
-//        if let vm = artifactViewModel {
-//            theme = theme.codeBlock { configuration in
-//                VStack(alignment: .leading, spacing: 0) {
-//                    // 顶部信息栏：包含语言标签、预览按钮和复制按钮
-//                    HStack {
-//                        Text(configuration.language ?? "code")
-//                            .font(.system(.body, design: .monospaced))
-//                            .foregroundColor(Color.secondaryLabel)
-//                            .padding(.leading, 14)
-//                        Spacer()
-//                        
-//                        // 如果是HTML代码，显示预览按钮
-//                        if configuration.language?.lowercased() == "html" {
-//                            PreviewButton(viewModel: vm)
-//                                .padding(.trailing, 4)
-//                        }
-//                        
-//                        CopyButton(code: configuration.content)
-//                            .padding(.trailing, 8)
-//                    }
-//                    .frame(maxWidth: .infinity)
-//                    .padding(.vertical, 8)
-//                    .background(Color(
-//                        light: Color(rgba: 0xf0f0_f0ff), dark: Color(rgba: 0x2a2a_2aff)
-//                    ))
-//                    .roundedCorners(radius: 15, corners: [.topLeft, .topRight])
-//                    
-//                    ScrollView(.horizontal) {
-//                        if configuration.language?.lowercased() == "diff" {
-//                            // 特殊处理diff格式的代码
-//                            DiffCodeView(code: configuration.content)
-//                                .padding(.vertical, 8)
-//                                .padding(.leading, 14)
-//                        } else {
-//                            // 使用普通的代码高亮处理其他语言
-//                            configuration.label
-//                                .fixedSize(horizontal: false, vertical: true)
-//                                .relativeLineSpacing(.em(0.333335))
-//                                .markdownTextStyle {
-//                                    FontFamilyVariant(.monospaced)
-//                                    FontSize(.rem(1.1))
-//                                }
-//                                .padding(.vertical, 8)
-//                                .padding(.leading, 14)
-//                        }
-//                    }
-//                    .background(Color(rgba: 0x3333_36ff))
-//                    .roundedCorners(radius: 15, corners: [.bottomLeft, .bottomRight])
-//                    .markdownMargin(top: .em(0.8), bottom: .zero)
-//                    
-//                    // 如果是HTML代码，提取到ArtifactViewModel
-//                    .onAppear {
-//                        if configuration.language?.lowercased() == "html" {
-//                            vm.addCodeBlock(CodeBlock(
-//                                language: configuration.language ?? "html",
-//                                code: configuration.content
-//                            ))
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        
-//        return theme
-//    }
-//}
-
-
-//#Preview {
-//    MessageView()
-//}
+#Preview {
+    // Create a sample SwiftData environment for preview
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: ChatMessage.self, ChatSession.self, configurations: config)
+    
+    // Create the required environment objects
+    let modelSettings = ModelSettingsData.shared
+    let chatViewModel = ChatViewModel(
+        modelSettings: modelSettings,
+        modelContext: container.mainContext
+    )
+    
+    // Create a sample chat message
+    let sampleMessage = ChatMessage(
+        id: UUID().uuidString,
+        ssid: "test-session",
+        character: "ai", // AI message
+        chat_title: "Sample Chat",
+        chat_content: """
+           Here's a code example in Swift:
+           
+           ```swift
+           import SwiftUI
+           
+           struct ContentView: View {
+               var body: some View {
+                   Text("Hello, World!")
+                       .padding()
+               }
+           }
+           ```
+           
+           And here's an example using diff format:
+           
+           ```diff
+           - let oldValue = "Previous text"
+           + let newValue = "Updated text"
+             let unchangedLine = "This line remains the same"
+           ```
+           """,
+        thinking_content: "I'm considering various code examples that would be useful for a beginner Swift developer. A simple SwiftUI example seems appropriate.",
+        isThinkingExpanded: true,
+        imageUrl: "",
+        sequence: 1,
+        timestamp: Date(),
+        username: "Test User",
+        userid: UUID().uuidString,
+        providerName: "OpenAI",
+        modelName: "GPT-4"
+    )
+    
+    // Create and configure ArtifactViewModel
+    let artifactViewModel = ArtifactViewModel()
+    
+    return MessageView(
+        message: sampleMessage,
+        viewModel: chatViewModel,
+        userFinishedInput: .constant(true),
+        artifactViewModel: artifactViewModel
+    )
+    .frame(width: 600, height: 600) // Set a reasonable preview width
+    .environmentObject(modelSettings)
+    .environmentObject(LocalizationManager.shared)
+}

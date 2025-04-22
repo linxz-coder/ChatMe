@@ -22,3 +22,12 @@
 "thinkingMode" = "Thinking Mode";
 "thinkingModeIsON" = "Thinking Mode is ON";
 "imageModel" = "Image Generation";
+"selectedFiles" = "Selected Files";
+"clear" = "Clear";
+"generatingImages..." = "Generating images...";
+"thinkingProcess: " = "Thinking: ";
+"save_image" = "Save Image";
+"copy_image_url" = "Copy Image URL";
+"rightClickToSave" = "Right-click to save the picture in case the picture link fails.";
+"imageFailed" = "Image failed to load";
+"reload" = "Reload";
