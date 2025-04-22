@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ChatView: View {
     
@@ -69,7 +70,7 @@ struct ChatView: View {
                         InputView(chatViewModel: _chatViewModel, message: $message,userFinishedInput: $userFinishedInput)
                     }
                     
-//                    .frame(width: artifactViewModel.isActive ?
+                    //                    .frame(width: artifactViewModel.isActive ?
                     .frame(width: artifactViewModel.isActive && artifactViewModel.isPreviewEnabled ?
                            geometry.size.width * dividerPosition :
                             geometry.size.width)
@@ -77,7 +78,6 @@ struct ChatView: View {
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
-                                //                                createNewSession()
                                 context.createNewSession(chatViewModel: chatViewModel, settings: settings)
                                 userFinishedInput = false
                                 message = ""
@@ -90,29 +90,19 @@ struct ChatView: View {
                     }
                     
                     // 右侧代码预览区域 - 仅当有代码块且激活时显示
-//                    if artifactViewModel.isActive {
                     if artifactViewModel.isActive && artifactViewModel.isPreviewEnabled {
                         ArtifactPreview(viewModel: artifactViewModel)
-                        //                        .frame(width: geometry.size.width * 0.5)
                             .frame(width: geometry.size.width * (1 - dividerPosition))
                             .transition(.move(edge: .trailing))
                     }
                 }
                 
                 // 添加可拖动分隔栏，仅当预览窗口激活时显示
-//                if artifactViewModel.isActive {
+                //                if artifactViewModel.isActive {
                 if artifactViewModel.isActive && artifactViewModel.isPreviewEnabled {
-                    // 分隔栏定位
-                    //                    Rectangle()
-                    //                        .fill(Color.gray.opacity(0.5))
-                    //                        .frame(width: isDragging ? 4 : 2, height: geometry.size.height)
-                    //                        .position(x: geometry.size.width * dividerPosition, y: geometry.size.height / 2)
                     
                     // 分隔栏 - 更容易选中的版本
                     ZStack {
-                        // 主分隔线
-                        //                        Rectangle()
-                        //                                                     .fill(Color.white.opacity(0.6))
                         Rectangle()
                             .fill(Color(light: Color.white.opacity(0.6), dark: Color.gray.opacity(0.4)))
                             .frame(width: isDragging ? 6 : 4, height: geometry.size.height)
@@ -152,7 +142,7 @@ struct ChatView: View {
                     .animation(.interactiveSpring(), value: isDragging)
                 }
             }
-            .onChange(of: chatViewModel.responseText) { newContent in
+            .onChange(of: chatViewModel.responseText) { _,newContent in
                 // 当AI正在响应时实时提取代码
                 if chatViewModel.isLoading {
                     artifactViewModel.extractCodeBlocks(from: newContent)
@@ -160,7 +150,7 @@ struct ChatView: View {
             }
             // 添加调整光标样式
             .onHover { isHovered in
-//                if artifactViewModel.isActive {
+                //                if artifactViewModel.isActive {
                 if artifactViewModel.isActive && artifactViewModel.isPreviewEnabled {
                     // 在分隔栏附近时显示调整光标
                     let mouseLocation = NSEvent.mouseLocation
@@ -181,6 +171,91 @@ struct ChatView: View {
     }
 }
 
-//#Preview {
-//    ChatView()
-//}
+#Preview {
+    // Create a sample SwiftData container for preview
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: ChatMessage.self, ChatSession.self, configurations: config)
+    
+    // Create a sample chat session
+    let session = ChatSession(
+        id: UUID().uuidString,
+        title: "Sample Chat",
+        messages: [],
+        timestamp: Date(),
+        username: "Test User",
+        userid: UUID().uuidString
+    )
+    
+    // Create some test messages
+    let messageContents = [
+        "Hello! I'd like to create a simple webpage.",
+        "Sure, I can help with that. Here's a simple HTML template to get you started:\n\n```html\n<!DOCTYPE html>\n<html>\n<head>\n    <title>My First Page</title>\n    <style>\n        body {\n            font-family: Arial, sans-serif;\n            margin: 20px;\n            line-height: 1.6;\n        }\n        h1 {\n            color: #0066cc;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Welcome to My Website</h1>\n        <p>This is a paragraph of text. You can add more content here.</p>\n    </div>\n</body>\n</html>\n```\n\nYou can copy this code and save it as `index.html` to view it in your browser.",
+        "Thanks! Can you add a simple navigation menu to it?",
+        "Certainly! Here's the updated HTML with a navigation menu:\n\n```html\n<!DOCTYPE html>\n<html>\n<head>\n    <title>My First Page</title>\n    <style>\n        body {\n            font-family: Arial, sans-serif;\n            margin: 0;\n            padding: 0;\n            line-height: 1.6;\n        }\n        nav {\n            background-color: #333;\n            overflow: hidden;\n        }\n        nav a {\n            float: left;\n            color: white;\n            text-align: center;\n            padding: 14px 16px;\n            text-decoration: none;\n        }\n        nav a:hover {\n            background-color: #ddd;\n            color: black;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n            padding: 20px;\n        }\n    </style>\n</head>\n<body>\n    <nav>\n        <a href=\"#\">Home</a>\n        <a href=\"#\">About</a>\n        <a href=\"#\">Services</a>\n        <a href=\"#\">Contact</a>\n    </nav>\n    <div class=\"container\">\n        <h1>Welcome to My Website</h1>\n        <p>This is a paragraph of text. You can add more content here.</p>\n    </div>\n</body>\n</html>\n```",
+        "Could you also make the background color light gray?",
+        "Of course! Here's the updated code with a light gray background:\n\n```html\n<!DOCTYPE html>\n<html>\n<head>\n    <title>My First Page</title>\n    <style>\n        body {\n            font-family: Arial, sans-serif;\n            margin: 0;\n            padding: 0;\n            line-height: 1.6;\n            background-color: #f0f0f0;\n        }\n        nav {\n            background-color: #333;\n            overflow: hidden;\n        }\n        nav a {\n            float: left;\n            color: white;\n            text-align: center;\n            padding: 14px 16px;\n            text-decoration: none;\n        }\n        nav a:hover {\n            background-color: #ddd;\n            color: black;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n            padding: 20px;\n            background-color: white;\n            border-radius: 5px;\n            box-shadow: 0 2px 5px rgba(0,0,0,0.1);\n        }\n    </style>\n</head>\n<body>\n    <nav>\n        <a href=\"#\">Home</a>\n        <a href=\"#\">About</a>\n        <a href=\"#\">Services</a>\n        <a href=\"#\">Contact</a>\n    </nav>\n    <div class=\"container\">\n        <h1>Welcome to My Website</h1>\n        <p>This is a paragraph of text. You can add more content here.</p>\n    </div>\n</body>\n</html>\n```"
+    ]
+    
+    // Create alternating messages between user and AI
+    for (index, content) in messageContents.enumerated() {
+        let character = index % 2 == 0 ? "user" : "ai"
+        
+        let message = ChatMessage(
+            id: UUID().uuidString,
+            ssid: session.id,
+            character: character,
+            chat_title: "Sample Chat",
+            chat_content: content,
+            thinking_content: "",
+            isThinkingExpanded: true,
+            imageUrl: "",
+            sequence: index + 1,
+            timestamp: Date().addingTimeInterval(Double(-300 + index * 60)), // 1 minute per message
+            username: "Test User",
+            userid: UUID().uuidString,
+            providerName: "Sample Provider",
+            modelName: "Sample Model"
+        )
+        
+        container.mainContext.insert(message)
+    }
+    
+    // Add sample data to the container
+    container.mainContext.insert(session)
+    
+    // Create the required environment objects
+    let modelSettings = ModelSettingsData.shared
+    let chatViewModel = ChatViewModel(
+        modelSettings: modelSettings,
+        modelContext: container.mainContext
+    )
+    
+    // Set the current session
+    chatViewModel.currentSession = session
+    chatViewModel.chatMessages = messageContents.enumerated().map { index, content in
+        let character = index % 2 == 0 ? "user" : "ai"
+        
+        return ChatMessage(
+            id: UUID().uuidString,
+            ssid: session.id,
+            character: character,
+            chat_title: "Sample Chat",
+            chat_content: content,
+            thinking_content: "",
+            isThinkingExpanded: true,
+            imageUrl: "",
+            sequence: index + 1,
+            timestamp: Date().addingTimeInterval(Double(-300 + index * 60)),
+            username: "Test User",
+            userid: UUID().uuidString,
+            providerName: "Sample Provider",
+            modelName: "Sample Model"
+        )
+    }
+    
+    return ChatView()
+        .environmentObject(modelSettings)
+        .environmentObject(LocalizationManager.shared)
+        .environmentObject(chatViewModel)
+        .modelContainer(container)
+}

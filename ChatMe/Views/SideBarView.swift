@@ -290,42 +290,42 @@ struct SideBarView: View {
     // Create some sample data
     let session = ChatSession(
         id: UUID().uuidString,
-        title: "测试会话",
+        title: "Test Session",
         messages: [],
         timestamp: Date(),
-        username: "测试用户",
+        username: "test user",
         userid: UUID().uuidString
     )
     
     // Create multiple test messages
     let messageContents = [
-        "你好，这是第一条测试消息",
-        "这是第二条测试消息",
-        "这是第三条测试消息",
-        "这是第四条测试消息",
-        "这是第五条测试消息"
+        "Hello, this is the first test message.",
+        "this is the second test message.",
+        "this is the third test message.",
+        "this is the fourth test message.",
+        "this is the fifth test message."
     ]
     
     // Create alternating messages between users and AI.
     for (index, content) in messageContents.enumerated() {
         let character = index % 2 == 0 ? "user" : "ai"
-        let responseContent = index % 2 == 0 ? content : "AI回复：\(content)"
+        let responseContent = index % 2 == 0 ? content : "AI：\(content)"
         
         let message = ChatMessage(
             id: UUID().uuidString,
             ssid: session.id,
             character: character,
-            chat_title: "测试对话",
+            chat_title: "Test Session",
             chat_content: responseContent,
             thinking_content: "",
             isThinkingExpanded: true,
             imageUrl: "",
             sequence: index + 1,
-            timestamp: Date().addingTimeInterval(Double(-300 + index * 60)),  // 每条消息间隔1分钟
-            username: "测试用户",
+            timestamp: Date().addingTimeInterval(Double(-300 + index * 60)),  // 1 minute per message
+            username: "test user",
             userid: UUID().uuidString,
-            providerName: "测试供应商",
-            modelName: "测试模型"
+            providerName: "Test Provider",
+            modelName: "Test Model"
         )
         
         container.mainContext.insert(message)
