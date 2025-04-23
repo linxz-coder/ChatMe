@@ -31,3 +31,9 @@
 "rightClickToSave" = "Right-click to save the picture in case the picture link fails.";
 "imageFailed" = "Image failed to load";
 "reload" = "Reload";
+"showFullMessages" = "Show full messages";
+"collapse" = "Collapse";
+"copy" = "Copy";
+"copied" = "Copied";
+"pause" = "Pause";
+"play" = "Play";

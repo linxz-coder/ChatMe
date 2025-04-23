@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct InputView: View {
     
@@ -23,7 +24,7 @@ struct InputView: View {
         
         VStack(alignment: .leading, spacing: 8) {
             
-            // 附件面板（可折叠）
+            // Attachment panel (foldable)
             if showAttachmentPanel {
                 FileAttachmentPicker()
                     .padding(.horizontal)
@@ -45,21 +46,21 @@ struct InputView: View {
                                         dark: Color(red: 38/255, green: 38/255, blue: 40/255)))
                     )
                     .cornerRadius(10)
-                    .disabled(chatViewModel.isLoading) // 当AI正在响应时禁用输入框
+                    .disabled(chatViewModel.isLoading) // Disable the input box when AI is responding
                     
                     LocalizedText(key: "askSomeThing")
                         .padding()
                         .frame(width: 200, alignment: .leading)
                         .foregroundStyle(.secondary)
                         .opacity(self.message == "" ? 100 : 0)
-                        .allowsHitTesting(false) //占位符禁用点击事件
+                        .allowsHitTesting(false) //Placeholder disables click event
                 }
                 
                 
-                // 根据当前状态显示发送或停止按钮
+                // Display send or stop button based on current status
                 if chatViewModel.isAnswering {
                     Button {
-                        // 调用停止响应的方法
+                        // Invoke the method to stop the response
                         chatViewModel.stopStreamResponse()
                     } label: {
                         Image(systemName: "stop.fill")
@@ -85,7 +86,7 @@ struct InputView: View {
             
             HStack(spacing: 16) {
                 Button {
-                    print("添加附件")
+                    print("Add Files")
                     withAnimation {
                         showAttachmentPanel.toggle()
                     }
@@ -96,7 +97,7 @@ struct InputView: View {
                 }.buttonStyle(.plain)
                 
                 Button {
-                    print("联网搜索")
+                    print("Search the Internet")
                     withAnimation {
                         isWebSearchEnabled.toggle()
                     }
@@ -105,13 +106,6 @@ struct InputView: View {
                         .font(.system(size: 15))
                         .foregroundColor(isWebSearchEnabled ? .blue : .primary)
                 }.buttonStyle(.plain)
-                
-                //                Button {
-                //                    print("表情")
-                //                } label: {
-                //                    Image(systemName: "leaf")
-                //                        .font(.system(size: 15))
-                //                }.buttonStyle(.plain)
             }
         }.padding()
         
@@ -120,31 +114,30 @@ struct InputView: View {
     
     private func sendMessage(){
         
-        // 如果AI正在响应，不允许发送消息
+        // If AI is responding, do not send messages.
         guard !chatViewModel.isLoading else {
             return
         }
         
-        // 确保消息不为空
+        // Make sure the message is not empty
         guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
-        // 获取当前消息文本
+        // Get the current message text
         let userInput = message
         
-        // 清空输入框
+        // clear the input box
         message = ""
         
-        // 标记用户已完成输入
+        // check if user finished input
         userFinishedInput = true
         
-        //如果没有聊天记录，创建新会话
+        //if no messages, create new session
         if chatViewModel.chatMessages.isEmpty{
             context.createNewSession(chatViewModel: chatViewModel, settings: settings)
             
         }
         
-        
-        //发送到swfitData数据库
+        //Send to SwiftData database
         let messageId = UUID().uuidString
         let ssid = chatViewModel.currentSession!.id
         
@@ -165,41 +158,41 @@ struct InputView: View {
             modelName: settings.selectedModel?.name ?? ""
         )
         
-        context.insert(newMessage) //添加到数据库
-        chatViewModel.chatMessages.append(newMessage)  // 确保chatViewModel的本地数组也被更新
+        context.insert(newMessage) //Add to SwiftData
+        chatViewModel.chatMessages.append(newMessage)  // Ensure that the local array of chatViewModel is also updated.
         
-        //将消息添加到当前会话
+        //Add message to current session
         chatViewModel.currentSession!.messages.append(newMessage)
         
         
         do {
-            try context.save()  // 保存上下文的所有更改
-            print("添加用户消息后")
+            try context.save()  // Save all changes to the context
+            print("After user message: ")
             for message in chatViewModel.chatMessages {
-                print("ID: \(message.id), SSID: \(message.ssid), 角色: \(message.character), 内容: \(message.chat_content)")
+                print("ID: \(message.id), SSID: \(message.ssid), character: \(message.character), content: \(message.chat_content)")
             }
         } catch {
-            print("保存数据时出错: \(error)")
+            print("Save failed: \(error)")
         }
         
         
         var visibleMessage = ""
         
-        // 如果有文件附件，先处理文件上传，再发送消息
+        // If there are file attachments, handle the file upload first, then send the message.
         if !fileManager.uploadedFiles.isEmpty {
-            // 显示上传状态
+            // show upload status
             chatViewModel.isLoading = true
             
-            // 准备上传所有文件
+            // prepare files to upload
             let apiKey = settings.selectedModel?.apiKey ?? settings.apiKey
             var uploadedFileIds: [String] = []
             var uploadedContents: [String] = []
             var remainingUploads = fileManager.uploadedFiles.count
             
-            // 处理所有文件上传完成后的回调
+            // Handle the callback after all file uploads are completed.
             let processCompletedUploads = {
                 if remainingUploads <= 0 {
-                    visibleMessage = userInput.isEmpty ? "分析上传的文件" : userInput
+                    visibleMessage = userInput.isEmpty ? "Analyze the uploaded file" : userInput
                     var backendPrompt = userInput
                     
                     // 添加文件内容到消息中
@@ -207,59 +200,59 @@ struct InputView: View {
                         if !backendPrompt.isEmpty {
                             backendPrompt += "\n\n"
                         }
-                        backendPrompt += "以下是上传文件的内容：\n\n"
+                        backendPrompt += "Here is the content of the uploaded file.：\n\n"
                         for content in uploadedContents {
                             backendPrompt += "```\n\(content)\n```\n\n"
                         }
                     }
                     
-                    // 使用选定的模型信息发送请求
+                    // Send a request using the selected model
                     processMessageWithSelectedModel(userInput: backendPrompt, visibleMessage: visibleMessage)
                     
-                    // 清空已上传文件列表
+                    // Clear list of files uploaded
                     DispatchQueue.main.async {
                         fileManager.removeAllFiles()
                     }
                 }
             }
             
-            // 上传每个文件并获取内容
+            // Upload each file and obtain the content
             for file in fileManager.uploadedFiles {
-                // 如果文件已经上传过，跳过上传步骤
+                // If the file has been uploaded before, skip the upload step.
                 if let fileId = file.fileId {
-                    // 获取已上传文件的内容
+                    // Retrieve the content of the uploaded file
                     fileManager.getFileContent(fileId: fileId, apiKey: apiKey) { result in
                         switch result {
                         case .success(let content):
                             uploadedContents.append(content)
                         case .failure(let error):
-                            print("获取文件内容失败: \(error.localizedDescription)")
+                            print("Get file failed: \(error.localizedDescription)")
                         }
                         
                         remainingUploads -= 1
                         processCompletedUploads()
                     }
                 } else {
-                    // 上传新文件
+                    // Upload new file
                     fileManager.uploadFileToZhipuAI(file: file, apiKey: apiKey) { result in
                         switch result {
                         case .success(let fileId):
                             uploadedFileIds.append(fileId)
                             
-                            // 获取文件内容
+                            // get content of files
                             fileManager.getFileContent(fileId: fileId, apiKey: apiKey) { contentResult in
                                 switch contentResult {
                                 case .success(let content):
                                     uploadedContents.append(content)
                                 case .failure(let error):
-                                    print("获取文件内容失败: \(error.localizedDescription)")
+                                    print("Get Content of file failed: \(error.localizedDescription)")
                                 }
                                 
                                 remainingUploads -= 1
                                 processCompletedUploads()
                             }
                         case .failure(let error):
-                            print("上传文件失败: \(error.localizedDescription)")
+                            print("Upload Failed: \(error.localizedDescription)")
                             remainingUploads -= 1
                             processCompletedUploads()
                         }
@@ -267,18 +260,18 @@ struct InputView: View {
                 }
             }
         } else {
-            // 没有文件附件，直接发送消息
+            // No file attachment, send the message directly.
             processMessageWithSelectedModel(userInput: userInput, visibleMessage: visibleMessage)
         }
     }
     
-    // 根据选定的模型处理消息
+    // Process messages based on the selected model
     private func processMessageWithSelectedModel(userInput: String, visibleMessage: String) {
-        // 使用选定的模型信息发送请求
+        // Send a request using the selected model
         if let model = settings.selectedModel {
-            // 检查是否为图片生成模型
+            // Check if it is an image generation model
             if model.modelType == .image {
-                // 对于图片模型，直接调用图片生成方法
+                // For image models, directly call the image generation method
                 chatViewModel.generateImage(prompt: userInput)
             } else {
                 chatViewModel.streamAnswer(
@@ -292,7 +285,7 @@ struct InputView: View {
                 )
             }
         } else {
-            // 如果没有选定模型，使用当前设置
+            // If no model is selected, use the current settings.
             chatViewModel.streamAnswer(
                 requestURL: settings.baseURL,
                 apiKey: settings.apiKey,
@@ -311,10 +304,83 @@ struct InputView: View {
 
 
 
-//#Preview {
-//    InputView(chatViewModel: ChatViewModel(modelSettings: ModelSettingsData()),
-//              message: .constant(""),
-//              userFinishedInput: .constant(false))
-//    .environmentObject(ModelSettingsData())
-//    .environmentObject(LocalizationManager.shared)
-//}
+#Preview {
+    // Create a sample SwiftData environment for preview
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: ChatMessage.self, ChatSession.self, configurations: config)
+    
+    // Create the required environment objects
+    let modelSettings = ModelSettingsData.shared
+    let chatViewModel = ChatViewModel(
+        modelSettings: modelSettings,
+        modelContext: container.mainContext
+    )
+    
+    // Create sample session
+    let session = ChatSession(
+        id: UUID().uuidString,
+        title: "Sample Chat",
+        messages: [],
+        timestamp: Date(),
+        username: "Test User",
+        userid: UUID().uuidString
+    )
+    
+    // Set current session
+    chatViewModel.currentSession = session
+    
+    // Create different input states
+    return VStack(spacing: 20) {
+        Text("Input View Preview")
+            .font(.headline)
+        
+        // Empty input
+        VStack(alignment: .leading) {
+            Text("Empty Input State")
+                .font(.subheadline)
+            
+            InputView(
+                message: .constant(""),
+                userFinishedInput: .constant(false)
+            )
+            .background(Color(light: .white, dark: Color(red: 0x18/255, green: 0x18/255, blue: 0x18/255)))
+            .border(Color.gray.opacity(0.3))
+        }
+        
+        // Input with text
+        VStack(alignment: .leading) {
+            Text("Input With Text")
+                .font(.subheadline)
+            
+            InputView(
+                message: .constant("Hello, I'd like to know how to create a responsive layout in SwiftUI"),
+                userFinishedInput: .constant(false)
+            )
+            .background(Color(light: .white, dark: Color(red: 0x18/255, green: 0x18/255, blue: 0x18/255)))
+            .border(Color.gray.opacity(0.3))
+        }
+        
+        // Input while AI is responding
+        VStack(alignment: .leading) {
+            Text("While AI is Responding")
+                .font(.subheadline)
+            
+            let customViewModel = chatViewModel
+            let _ = { customViewModel.isLoading = true; customViewModel.isAnswering = false  }()//can be set to true
+            
+            InputView(
+                message: .constant("Tell me about SwiftUI animations"),
+                userFinishedInput: .constant(true)
+            )
+            .environmentObject(customViewModel)
+            .background(Color(light: .white, dark: Color(red: 0x18/255, green: 0x18/255, blue: 0x18/255)))
+            .border(Color.gray.opacity(0.3))
+        }
+    }
+    .padding()
+    .frame(width: 600, height: 600)
+    .environmentObject(modelSettings)
+    .environmentObject(chatViewModel)
+    .environmentObject(LocalizationManager.shared)
+    .modelContainer(container)
+}

@@ -31,3 +31,9 @@
 "rightClickToSave" = "右键保存图片，以防图片链接失效。";
 "imageFailed" = "图片加载失败";
 "reload" = "重新加载";
+"showFullMessages" = "查看完整信息";
+"collapse" = "折叠信息";
+"copy" = "复制";
+"copied" = "已复制";
+"pause" = "暂停播放";
+"play" = "播放";

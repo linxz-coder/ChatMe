@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// 预览按钮组件
 struct PreviewButton: View {
     @ObservedObject var viewModel: ArtifactViewModel
     
@@ -19,8 +18,13 @@ struct PreviewButton: View {
                 Image(systemName: viewModel.isPreviewEnabled ? "pause.fill" : "play.fill")
                     .font(.system(size: 12))
                 
-                Text(viewModel.isPreviewEnabled ? "暂停预览" : "播放预览")
-                    .font(.system(size: 12))
+                if(viewModel.isPreviewEnabled){
+                    LocalizedText(key: "pause")
+                        .font(.system(size: 12))
+                } else {
+                    LocalizedText(key: "play")
+                        .font(.system(size: 12))
+                }
             }
             .padding(6)
             .background(Color(light: .white.opacity(0.9), dark: Color(red: 0x18/255, green: 0x18/255, blue: 0x18/255)))
@@ -33,4 +37,11 @@ struct PreviewButton: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
+}
+
+#Preview {
+    let artifactViewModel = ArtifactViewModel()
+    PreviewButton(viewModel: artifactViewModel)
+        .frame(width: 300, height: 300)
+        .environmentObject(LocalizationManager.shared)
 }

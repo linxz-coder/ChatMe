@@ -8,10 +8,10 @@
 import SwiftUI
 import MarkdownUI
 
-// 专门用于渲染diff格式代码的视图组件
+// A view component specifically designed for rendering diff format code.
 struct DiffCodeView: View {
     let code: String
-    // 缓存属性字符串以提高性能
+    // Cache attribute string to improve performance
     @State private var attributedString: AttributedString?
     
     var body: some View {
@@ -40,7 +40,7 @@ struct DiffCodeView: View {
             for (index, line) in lines.enumerated() {
                 var lineAttr = AttributedString(line)
                 
-                // 根据行内容设置颜色
+                // According to row content to set color
                 if line.hasPrefix("+") {
                     lineAttr.foregroundColor = Color(red: 0.514, green: 0.716, blue: 0.431, opacity: 1.0)
                 } else if line.hasPrefix("-") {
@@ -51,7 +51,7 @@ struct DiffCodeView: View {
                 
                 result.append(lineAttr)
                 
-                // 不在最后一行添加换行符
+                // Do not add a newline character at the end of the last line.
                 if index < lines.count - 1 {
                     result.append(AttributedString("\n"))
                 }
@@ -66,14 +66,52 @@ struct DiffCodeView: View {
     
     private func lineColor(for line: String) -> Color {
         if line.hasPrefix("+") {
-            // 添加行 - 绿色
+            // Add Row - Green
             return Color(red: 0.514, green: 0.716, blue: 0.431, opacity: 1.0)
         } else if line.hasPrefix("-") {
-            // 删除行 - 橙色
+            // Delete Row - Orange
             return Color(red: 0.867, green: 0.553, blue: 0.165)
         } else {
-            // 普通行 - 白色
+            // unchanged - White
             return Color(red: 0.9, green: 0.9, blue: 0.9)
         }
     }
+}
+
+#Preview {
+    // sample diff code
+    let sampleDiffCode = """
+       diff --git a/src/components/Button.js b/src/components/Button.js
+       index 8a4e9b5..3f21c67 100644
+       --- a/src/components/Button.js
+       +++ b/src/components/Button.js
+       @@ -10,11 +10,14 @@ class Button extends Component {
+         
+         render() {
+           const { onClick, className, children } = this.props;
+       -    const buttonClass = className || 'default-btn';
+       +    const buttonClass = className || 'primary-btn';
+           
+           return (
+       -      <button className={buttonClass} onClick={onClick}>
+       -        {children}
+       -      </button>
+       +      <button 
+       +        className={buttonClass} 
+       +        onClick={onClick}
+       +        aria-label={this.props.label || 'Button'}>
+       +          {children}
+       +      </button>
+           );
+         }
+       """
+    
+    
+    
+    DiffCodeView(code: sampleDiffCode)
+        .frame(height: 300)
+        .frame(maxWidth: .infinity)
+        .background(Color(red: 0.2, green: 0.2, blue: 0.2))
+        .cornerRadius(8)
+        .padding()
 }

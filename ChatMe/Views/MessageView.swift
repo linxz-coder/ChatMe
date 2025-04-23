@@ -394,9 +394,7 @@ struct MessageView: View {
     }
 }
 
-
-
-//扩展代码块
+//Extensions
 extension Theme {
     
     static let fancy = Theme()
@@ -480,7 +478,7 @@ extension Theme {
         }
         .codeBlock { configuration in
             VStack(alignment: .leading, spacing: 0) {
-                // 额外信息框：包含语言标签和复制按钮
+                // Information area：Code Language and Copy Button
                 HStack {
                     Text(configuration.language ?? "code")
                         .font(.system(.body, design: .monospaced))
@@ -498,7 +496,7 @@ extension Theme {
                 .roundedCorners(radius: 15, corners: [.topLeft, .topRight])
                 ScrollView(.horizontal) {
                     if configuration.language == "diff" {
-                        // 对diff语言特殊处理
+                        // Special handling for diff language
                         DiffCodeView(code: configuration.content)
                             .padding(.vertical, 8)
                             .padding(.leading, 14)
@@ -514,9 +512,6 @@ extension Theme {
                             .padding(.leading, 14)
                     }
                 }
-                //                .background(Color(
-                //                    light: Color(rgba: 0xf5f5_f7ff), dark: Color(rgba: 0x3333_36ff)
-                //                ))
                 .background(Color(rgba: 0x3333_36ff))
                 .roundedCorners(radius: 15, corners: [.bottomLeft, .bottomRight])
                 .markdownMargin(top: .em(0.8), bottom: .zero)
@@ -560,12 +555,12 @@ extension Theme {
         }
 }
 
-// 2. 扩展Theme类添加对diff的支持
+// Extensions Theme for Diff
 extension Theme {
     static let fancyWithDiff = fancy
         .codeBlock { configuration in
             VStack(alignment: .leading, spacing: 0) {
-                // 顶部信息栏：包含语言标签和复制按钮
+                // Code Language and Copy Button
                 HStack {
                     Text(configuration.language ?? "code")
                         .font(.system(.body, design: .monospaced))
@@ -584,12 +579,12 @@ extension Theme {
                 
                 ScrollView(.horizontal) {
                     if configuration.language?.lowercased() == "diff" {
-                        // 特殊处理diff格式的代码
+                        // Diff Code
                         DiffCodeView(code: configuration.content)
                             .padding(.vertical, 8)
                             .padding(.leading, 14)
                     } else {
-                        // 使用普通的代码高亮处理其他语言
+                        // Code Highlighter for other languages
                         configuration.label
                             .fixedSize(horizontal: false, vertical: true)
                             .relativeLineSpacing(.em(0.333335))
@@ -639,7 +634,7 @@ extension Color {
 }
 
 
-// 定义一个OptionSet，用于指定哪些角需要圆角化 - 类似于UIRectCorner
+// Define an OptionSet to specify which corners need to be rounded - similar to UIRectCorner
 struct RectCorner: OptionSet {
     let rawValue: Int
     
@@ -651,7 +646,7 @@ struct RectCorner: OptionSet {
     static let allCorners: RectCorner = [.topLeft, .topRight, .bottomLeft, .bottomRight]
 }
 
-// 绘制具有指定圆角的形状
+// Draw a shape with specified rounded corners
 struct RoundedCornersShape: Shape {
     var radius: CGFloat = .zero
     var corners: RectCorner = .allCorners
@@ -693,7 +688,7 @@ struct RoundedCornersShape: Shape {
     }
 }
 
-// View扩展，可以像修饰符一样使用：
+// View extension
 extension View {
     func roundedCorners(radius: CGFloat, corners: RectCorner) -> some View {
         clipShape(RoundedCornersShape(radius: radius, corners: corners))

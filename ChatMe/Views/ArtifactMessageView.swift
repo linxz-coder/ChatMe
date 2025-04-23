@@ -116,4 +116,5 @@ struct ArtifactMessageView: View {
         userFinishedInput: .constant(true),
         artifactViewModel: artifactViewModel
     )
+    .environmentObject(LocalizationManager.shared)
 }
