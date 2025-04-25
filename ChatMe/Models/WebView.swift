@@ -8,7 +8,7 @@
 import SwiftUI
 import WebKit
 
-// WebView组件用于渲染HTML内容
+// The WebView component is used to render HTML content.
 struct WebView: NSViewRepresentable {
     let htmlContent: String
     

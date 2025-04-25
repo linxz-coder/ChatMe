@@ -18,15 +18,15 @@ struct MacTextEditorWithEnter: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.isRichText = false
         textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
-//        textView.backgroundColor = NSColor(red: 244/255, green: 244/255, blue: 245/255, alpha: 1)
-         let dynamicColor = Color(light: Color(red: 244/255, green: 244/255, blue: 245/255),
+        
+        let dynamicColor = Color(light: Color(red: 244/255, green: 244/255, blue: 245/255),
                                  dark: Color(red: 38/255, green: 38/255, blue: 40/255))
-         textView.backgroundColor = NSColor(dynamicColor)
-
+        textView.backgroundColor = NSColor(dynamicColor)
+        
         textView.drawsBackground = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         
-        // 禁用默认的换行行为
+        // Disable the default line break behavior
         textView.isAutomaticLinkDetectionEnabled = false
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
@@ -37,7 +37,7 @@ struct MacTextEditorWithEnter: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
         
-        // 只有在文本不同时才更新，防止光标位置重置
+        // Only update when the text is different, to prevent the cursor position from being reset
         if textView.string != text {
             textView.string = text
         }
@@ -64,12 +64,12 @@ struct MacTextEditorWithEnter: NSViewRepresentable {
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
                 let event = NSApp.currentEvent
-                // 检查是否按下了Shift键
+                // Check if the Shift key has been pressed
                 if event?.modifierFlags.contains(.shift) == true {
-                    // 如果按下Shift+Enter，允许插入换行符
+                    // If Shift+Enter is pressed, it allows the insertion of a line break.
                     return false
                 } else {
-                    // 如果只按下Enter，发送消息
+                    // If Enter is pressed, send the message
                     onSubmit()
                     return true
                 }

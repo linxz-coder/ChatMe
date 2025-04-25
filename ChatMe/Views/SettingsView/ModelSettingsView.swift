@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ModelSettingsView: View {
     
+    @EnvironmentObject var localization: LocalizationManager
     @State var selection: Model?
     @EnvironmentObject var settings: ModelSettingsData
     @State private var showAlert = false
@@ -13,19 +14,14 @@ struct ModelSettingsView: View {
     var body: some View {
         GeometryReader { geometry in
             HStack {
-                //MARK: - 左侧菜单
-                //                List(settings.savedModels, selection: $selection) {
-                //                    Text($0.providerName).tag($0)
-                //                }
+                //MARK: - SideBar
                 List(getProviders(), id: \.self, selection: $selectedProvider) { provider in
                     Text(provider).tag(provider)
                 }
-                .frame(width: geometry.size.width * 0.25) // 1/4 的宽度
+                .frame(width: geometry.size.width * 0.25) // 1/4 width
                 .listStyle(.sidebar)
-                //                .onChange(of: selection) {
-                //                    settings.selectedModel = selection
-                .onChange(of: selectedProvider) { newProvider in
-                    // 当选择新提供商时，选择该提供商的第一个模型
+                .onChange(of: selectedProvider) {_, newProvider in
+                    // When choosing a new provider, select the first model of the provider.
                     if let provider = selectedProvider,
                        let firstModel = settings.savedModels.first(where: { $0.providerName == provider }) {
                         selection = firstModel
@@ -33,21 +29,18 @@ struct ModelSettingsView: View {
                     }
                 }
                 
-                //MARK: - 右侧内容
+                //MARK: - Content
                 if let _ = selection {
-                    
                     Form{
-                        
-                        // 如果当前提供商有多个模型，显示模型选择器
+                        // If the current provider has multiple models, display the model selector.
                         if let provider = selectedProvider, hasMultipleModels(for: provider) {
                             VStack(alignment: .leading) {
-                                Text("选择模型")
+                                Text("Select Model")
                                     .padding(.bottom, 4)
                                     .padding(.bottom, 4)
                                 
                                 Picker("", selection: $selection) {
                                     ForEach(getModels(for: provider), id: \.id) { model in
-                                        //                                        Text(model.name.isEmpty ? "未选择模型" : model.name).tag(model as Model?)
                                         if !model.name.isEmpty {
                                             Text(model.name).tag(model as Model?)
                                         }
@@ -93,45 +86,54 @@ struct ModelSettingsView: View {
                         Spacer()
                         
                         HStack {
-                            Button("确认") {
-                                     // 强制更新选中的模型以确保所有更改都被应用
-                                     if let model = selection {
-                                         var updatedModel = model
-                                         updatedModel.name = settings.modelName
-                                         updatedModel.apiKey = settings.apiKey
-                                         updatedModel.baseUrl = settings.baseURL
-                                
-                                         // 找到并更新模型
-                                         if let index = settings.savedModels.firstIndex(where: { $0.id == model.id }) {
-                                             settings.savedModels[index] = updatedModel
-                                             // 重新设置选中的模型以触发didSet
-                                             settings.selectedModel = updatedModel
-                                         }
-                                     }
+                            Button {
+                                // Force update the selected model to ensure that all changes are applied
+                                if let model = selection {
+                                    var updatedModel = model
+                                    updatedModel.name = settings.modelName
+                                    updatedModel.apiKey = settings.apiKey
+                                    updatedModel.baseUrl = settings.baseURL
+                                    
+                                    // Find and update the model
+                                    if let index = settings.savedModels.firstIndex(where: { $0.id == model.id }) {
+                                        settings.savedModels[index] = updatedModel
+                                        // Reset the selected model to trigger didSet
+                                        settings.selectedModel = updatedModel
+                                    }
+                                }
                                 showAlert = true
+                            } label: {
+                                LocalizedText(key: "confirm")
                             }
                             .buttonStyle(.borderedProminent)
                             
-                            Button("返回"){
+                            
+                            Button{
                                 dismiss()
+                            }label: {
+                                LocalizedText(key: "cancel")
                             }
                         }
                         .padding()
                         
-                        .frame(maxWidth: .infinity, alignment: .trailing) // 添加这一行来右对齐
+                        .frame(maxWidth: .infinity, alignment: .trailing) // Add this line to align to the right
                         
                     }
-                    .frame(width: geometry.size.width * 0.75) // 3/4 的宽度
-                    .alert("已保存至系统", isPresented: $showAlert) {
-                        Button("确定", role: .cancel) { dismiss() }
+                    .frame(width: geometry.size.width * 0.75) // 3/4 width
+                    .alert(localization.localizedString("saveToSystem"), isPresented: $showAlert) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            LocalizedText(key: "confirm")
+                        }
                     } message: {
-                        Text("设置已成功保存")
+                        LocalizedText(key: "saveModel")
                     }
                     
                 }
             }
             .onAppear {
-                // 初始化选择当前模型的提供商
+                // Initialize the selection of the current model provider
                 if let model = settings.selectedModel {
                     selectedProvider = model.providerName
                     selection = model
@@ -146,13 +148,13 @@ struct ModelSettingsView: View {
         }
     }
     
-    // 获取所有提供商列表
+    // Retrieve the list of all providers
     private func getProviders() -> [String] {
         let providers = Array(Set(settings.savedModels.map { $0.providerName })).sorted()
         return providers
     }
     
-    // 获取特定提供商的所有模型
+    // Retrieve all models from a specific provider
     private func getModels(for provider: String) -> [Model] {
         return settings.savedModels
             .filter { $0.providerName == provider }
@@ -163,7 +165,7 @@ struct ModelSettingsView: View {
             }
     }
     
-    // 判断提供商是否有多个模型
+    // Check if the provider has multiple models
     private func hasMultipleModels(for provider: String) -> Bool {
         let models = settings.savedModels.filter { $0.providerName == provider }
         return models.count > 1
@@ -175,4 +177,6 @@ struct ModelSettingsView: View {
     
     ModelSettingsView()
         .environmentObject(modelSettings)
+        .environmentObject(LocalizationManager.shared)
+        .frame(height: 600)
 }

@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-// 创建一个上下文扩展，提供会话创建功能
+// Create a context to provide createNewSession function to share
 extension ModelContext {
     
     func createNewSession(
@@ -21,7 +21,7 @@ extension ModelContext {
         let sessionId = UUID().uuidString
         let currentTimestamp = Date()
         
-        // 创建新会话
+        // Create new Session
         let newSession = ChatSession(
             id: sessionId,
             title: title,
@@ -31,7 +31,7 @@ extension ModelContext {
             userid: userId
         )
         
-        // 创建初始系统消息
+        // Initialize
         let initialMessage = ChatMessage(
             id: UUID().uuidString,
             ssid: sessionId,
@@ -49,15 +49,15 @@ extension ModelContext {
             modelName: settings.selectedModel?.name ?? ""
         )
         
-        // 添加到数据库
+        // Add to SwiftData
         self.insert(newSession)
         self.insert(initialMessage)
         
-        // 添加消息到会话
+        // Add message to the session
         chatViewModel.currentSession = newSession
         chatViewModel.chatMessages.append(initialMessage)
         
-        // 处理sessions数组
+        // Handle sessions Array
         if chatViewModel.sessions.isEmpty {
             chatViewModel.sessions = [newSession]
         } else {
@@ -67,7 +67,7 @@ extension ModelContext {
         do {
             try self.save()
         } catch {
-            print("创建新会话失败: \(error.localizedDescription)")
+            print("Fail to create new sessions: \(error.localizedDescription)")
         }
         
         return newSession

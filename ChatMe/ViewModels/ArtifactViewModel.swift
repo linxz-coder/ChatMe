@@ -1,9 +1,7 @@
-// 1. 创建ArtifactViewModel.swift文件，但避免Color扩展冲突
-//import SwiftUI
 import Foundation
 import WebKit
 
-// 预览内容类型
+// Code Types
 enum ArtifactType: String {
     case html = "html"
     case css = "css"
@@ -11,7 +9,7 @@ enum ArtifactType: String {
     case unknown = "unknown"
 }
 
-// 代码块模型
+// CodeBlock struct
 struct CodeBlock: Identifiable {
     let id = UUID()
     let language: String
@@ -28,14 +26,13 @@ struct CodeBlock: Identifiable {
     }
 }
 
-// Artifact视图模型
 class ArtifactViewModel: ObservableObject {
     @Published var codeBlocks: [CodeBlock] = []
     @Published var isActive: Bool = false
     @Published var activeTab: String = "preview"
-    @Published var isPreviewEnabled: Bool = false // 新增：控制预览是否启用
+    @Published var isPreviewEnabled: Bool = false
     
-    // 从消息内容中提取代码块
+    // Extract code blocks from the message content
     func extractCodeBlocks(from message: String) {
         let regex = try! NSRegularExpression(pattern: "```(?:(html|css|js|javascript)?\\s*\\n)([\\s\\S]*?)(?:```|$)", options: [])
         let nsString = message as NSString
@@ -62,7 +59,7 @@ class ArtifactViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.codeBlocks = extractedBlocks
                 self.isActive = true
-                // 默认不启用预览，但代码块已准备好
+                // Preview is set to false
                 self.isPreviewEnabled = false
             }
         } else {
@@ -74,28 +71,28 @@ class ArtifactViewModel: ObservableObject {
         }
     }
     
-    // 添加单个代码块
+    // Add Code Block
     func addCodeBlock(_ codeBlock: CodeBlock) {
-        // 如果已经存在相同类型的代码块，则更新它
+        // If a code block of the same type already exists, update it.
         if let index = codeBlocks.firstIndex(where: { $0.artifactType == codeBlock.artifactType }) {
             codeBlocks[index] = codeBlock
         } else {
-            // 否则添加新代码块
+            // Or add new codeBlock
             codeBlocks.append(codeBlock)
         }
         
-        // 如果包含HTML代码块，激活ArtifactViewModel
+        // If contains HTML codeBlock, Activate ArtifactViewModel
         if codeBlocks.contains(where: { $0.artifactType == .html }) {
             isActive = true
         }
     }
     
-    // 切换预览状态
+    // Toggle Preview status
     func togglePreview() {
         isPreviewEnabled.toggle()
     }
     
-    // 构建HTML预览内容
+    // HTML preview
     func buildPreviewContent() -> String {
         let html = codeBlocks.first(where: { $0.artifactType == .html })?.code ?? ""
         let css = codeBlocks.first(where: { $0.artifactType == .css })?.code ?? ""
@@ -121,9 +118,8 @@ class ArtifactViewModel: ObservableObject {
         """
     }
     
-    // 判断是否有可预览内容
+    // Determine if there is any content that can be previewed
     var hasPreviewableContent: Bool {
-//        return codeBlocks.contains { $0.artifactType == .html || $0.artifactType == .swiftui }
         return codeBlocks.contains { $0.artifactType == .html }
     }
 }

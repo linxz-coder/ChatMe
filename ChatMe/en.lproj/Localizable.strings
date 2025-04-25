@@ -37,3 +37,10 @@
 "copied" = "Copied";
 "pause" = "Pause";
 "play" = "Play";
+"confirm" = "Confirm";
+"cancel" = "Cancel";
+"saveToSystem" = "Saved to system";
+"saveModel" = "Model Saved";
+"comingSoon" = "Coming Soon...";
+"proxyUrl" = "Proxy URL";
+"proxyNote" = "Note: The proxy is only used for Anthropic and OpenAI API";

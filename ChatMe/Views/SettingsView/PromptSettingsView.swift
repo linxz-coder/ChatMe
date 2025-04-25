@@ -1,5 +1,5 @@
 //
-//  GenenralSettingsView.swift
+//  PromptSettingsView.swift
 //  ChatMe
 //
 //  Created by 凡学子 on 2025/2/28.
@@ -13,7 +13,7 @@ struct PromptSettingsView: View {
     
     var body: some View {
         Form {
-            Text("功能未开放").frame(maxWidth:400)
+            LocalizedText(key: "comingSoon").frame(maxWidth:400)
 
         }
     }
@@ -21,4 +21,5 @@ struct PromptSettingsView: View {
 
 #Preview {
     PromptSettingsView()
+        .environmentObject(LocalizationManager.shared)
 }

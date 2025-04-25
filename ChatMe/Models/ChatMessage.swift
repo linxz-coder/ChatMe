@@ -10,20 +10,20 @@ import SwiftData
 
 @Model
 class ChatMessage: Identifiable, Equatable {
-    @Attribute(.unique) var id: String //id唯一
-    var ssid: String              // 聊天标识
-    var character: String       // 用户角色
-    var chat_title: String      // 聊天标题
-    var chat_content: String    // 具体内容
-    var thinking_content: String = ""  // 存储思考内容
-    var isThinkingExpanded: Bool = true //是否展开思考内容
-    var imageUrl: String = ""   // 图片URL
-    var sequence: Int           // 聊天顺序，从0开始
-    var timestamp: Date         // 具体时间
-    var username: String        // 用户名称
-    var userid: String            // 用户id
-    var providerName: String = "" // 添加供应商名称属性
-    var modelName: String = ""    // 添加模型名称属性
+    @Attribute(.unique) var id: String // Unique ID
+    var ssid: String              // session ssid
+    var character: String       // character
+    var chat_title: String      // title
+    var chat_content: String    // chat content
+    var thinking_content: String = ""  // thinking content
+    var isThinkingExpanded: Bool = true //check if the thinking content needs to expand
+    var imageUrl: String = ""   // image URL
+    var sequence: Int           // sequence of the chat，start from 0
+    var timestamp: Date         // created time
+    var username: String        // username
+    var userid: String            // user id
+    var providerName: String = "" // Provider's name
+    var modelName: String = ""    // model's name
     
     static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {
         return lhs.id == rhs.id

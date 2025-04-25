@@ -14,17 +14,17 @@ struct Model: Identifiable, Hashable, Codable, Equatable {
     var baseUrl: String
     var apiKey: String
     var isThinkingEnabled: Bool = false
-    var modelType: ModelType = .chat // 添加模型类型字段
+    var modelType: ModelType = .chat // Add model type field
     
-    // 实现Equatable协议
+    // Equatable protocol
     static func == (lhs: Model, rhs: Model) -> Bool {
         return lhs.id == rhs.id
     }
 }
 
-// 增加模型类型枚举
+// Model Type enum
 enum ModelType: String, Codable {
-    case chat       // 文字聊天
-    case image      // 图像生成
+    case chat       // Text Chat
+    case image      // Image Generation
 }
 

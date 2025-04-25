@@ -1,5 +1,5 @@
 //
-//  GenenralSettingsView.swift
+//  PluginSettingsView.swift
 //  ChatMe
 //
 //  Created by 凡学子 on 2025/2/28.
@@ -13,7 +13,7 @@ struct PluginSettingsView: View {
     
     var body: some View {
         Form {
-            Text("功能未开放").frame(maxWidth:400)
+            LocalizedText(key: "comingSoon").frame(maxWidth:400)
 
         }
     }
@@ -21,4 +21,5 @@ struct PluginSettingsView: View {
 
 #Preview {
     PluginSettingsView()
+        .environmentObject(LocalizationManager.shared)
 }

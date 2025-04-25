@@ -9,11 +9,9 @@ import SwiftUI
 
 struct GeneralSettingsView: View {
     
-    
     @EnvironmentObject var localization: LocalizationManager
     @State private var languageSelection: Int = 0
-    @State private var forceRefresh: UUID = UUID() // 用于强制刷新视图
-    
+    @State private var forceRefresh: UUID = UUID() // Force refresh the view
     
     var body: some View {
         
@@ -25,30 +23,27 @@ struct GeneralSettingsView: View {
             } label: {
                 Text(localization.localizedString("interface_language"))
             }
-            .onChange(of: languageSelection) { newValue in
-                // 更新语言设置
+            .onChange(of: languageSelection) { _, newValue in
+                // Update System Language setting
                 let languageCode = newValue == 0 ? "zh" : "en"
                 localization.setLanguage(languageCode)
             }
             .onAppear {
-                // 确保初始值与当前语言匹配
+                // Ensure that the initial value matches the current language.
                 languageSelection = localization.language == "en" ? 1 : 0
             }
         }
         .frame(maxWidth:400)
-        .id(forceRefresh) // 使用UUID强制视图重建
+        .id(forceRefresh) // Force view refresh using UUID
         .onAppear {
-            // 在视图出现时设置正确的语言选择器状态
+            // Set the correct language selector state when the view appears
             languageSelection = localization.language == "en" ? 1 : 0
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LanguageChanged"))) { _ in
-            // 接收语言变更通知
-            forceRefresh = UUID() // 强制刷新
+            // Receive language change notification
+            forceRefresh = UUID() // Force refresh
         }
     }
-    
-    
-    
 }
 
 extension Binding {
@@ -64,5 +59,7 @@ extension Binding {
 }
 
 #Preview {
-    GeneralSettingsView().environmentObject(LocalizationManager.shared)
+    GeneralSettingsView()
+        .environmentObject(LocalizationManager.shared)
+        .frame(width: 600, height: 300)
 }

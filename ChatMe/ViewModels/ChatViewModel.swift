@@ -12,43 +12,39 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
     @Published var errorMessage = ""
     @Published var isLoading: Bool = false
     @Published var isAnswering: Bool = false
-    @Published var searchReferences: [SearchReference] = []  // 存储搜索引用
+    @Published var searchReferences: [SearchReference] = []
     var modelSettings: ModelSettingsData
     private var activeTask: URLSessionDataTask?
     private var session: URLSession!
     
-    // 添加用于批量更新的属性-thinking
-    private var pendingThinkingText = ""
-    private var thinkingUpdateTimer: Timer?
-    private var thinkingUpdateQueue = DispatchQueue(label: "com.chatme.thinkingupdate")
+    // Add properties for batch updates-thinking
     private var lastThinkingUpdate = Date()
     private var thinkingBuffer = ""
     
     private var modelContext: ModelContext
     
-    // 为了支持在视图加载后更新ModelContext
+    // To support updating ModelContext after view loading
     func updateModelContext(_ context: ModelContext) {
         self.modelContext = context
     }
     
-    // 默认用户信息
+    // Default user information
     let defaultUsername = "lxz"
     let defaultUserId = "b5224a80-56ab-42ed-8cf4-394dc9728bbc"
     let defaultTitle = "默认聊天标题"
     
     
-    //初始化设置
+    // initialization
     init(modelSettings: ModelSettingsData, modelContext: ModelContext) {
         self.modelSettings = modelSettings
         self.modelContext = modelContext
         
         super.init()
         
-        //加载已存在的会话
+        // Load existing session
         loadSessions()
     }
     
-    // 加载会话列表
     func loadSessions() {
         do {
             let descriptor = FetchDescriptor<ChatSession>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
@@ -56,28 +52,26 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             
             DispatchQueue.main.async {
                 if loadedSessions.isEmpty {
-                    //无内容
                     print("nothing")
                 } else {
                     self.sessions = loadedSessions
-                    // 如果有会话，默认使用第一个会话
+                    // If sessions exist, switch to the first session
                     self.switchSession(to: self.sessions[0])
                 }
             }
         } catch {
-            print("加载会话失败: \(error.localizedDescription)")
-            self.errorMessage = "加载会话失败: \(error.localizedDescription)"
+            print("Load Sessions Failed: \(error.localizedDescription)")
+            self.errorMessage = "Load Sessions Failed: \(error.localizedDescription)"
         }
         
     }
     
-    // 切换到指定会话
+    // Switch to the selected session
     func switchSession(to session: ChatSession) {
         currentSession = session
         loadMessages(for: session.id)
     }
     
-    // 加载会话的消息
     func loadMessages(for sessionId: String) {
         isLoading = true
         chatMessages = []
@@ -94,20 +88,15 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 self.chatMessages = messages
             }
         } catch {
-            print("加载消息失败: \(error.localizedDescription)")
+            print("Load Messages Failed: \(error.localizedDescription)")
             DispatchQueue.main.async {
-                self.errorMessage = "加载消息失败: \(error.localizedDescription)"
+                self.errorMessage = "Load Messages Failed: \(error.localizedDescription)"
                 self.isLoading = false
             }
         }
     }
     
-    // 添加用户消息
-    func addUserMessage(_ content: String) {
-        //无内容
-    }
-    
-    //更改聊天标题
+    //Update Session Title
     func updateSessionTitle(session: ChatSession, newTitle: String) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index].title = newTitle
@@ -116,33 +105,26 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 currentSession!.title = newTitle
             }
             
-            //更新chatMessages
+            //Update chatMessages
             for (index, message) in self.chatMessages.enumerated() {
                 if message.ssid == session.id {
                     chatMessages[index].chat_title = newTitle
                 }
             }
             
-            // 更新数据库中的会话标题
+            // Update chat titles in SwiftData
             do {
                 try modelContext.save()
-                print("会话标题已更新")
+                print("Session title updated")
             } catch {
-                print("更新会话标题失败: \(error.localizedDescription)")
+                print("Session title updated Failed: \(error.localizedDescription)")
             }
         }
     }
     
-    
-    // 创建新会话
-    func createNewSession() {
-        //无内容
-        
-    }
-    
-    // 搜索会话消息内容
+    // Search Messages
     func searchMessagesContent(for sessionId: String, query: String, completion: @escaping (Bool) -> Void) {
-        // 如果是当前会话，直接在已加载的消息中搜索
+        // If it is the current session, search directly in the loaded messages.
         if sessionId == currentSession!.id {
             let hasMatch = chatMessages.contains { message in
                 message.chat_content.lowercased().contains(query.lowercased())
@@ -151,7 +133,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             return
         }
         
-        // 如果不是当前会话，需要从数据库中加载并搜索
+        // If it is not the current session, load and search from the database.
         do {
             let predicate = #Predicate<ChatMessage> { message in
                 message.ssid == sessionId && message.chat_content.localizedStandardContains(query)
@@ -160,12 +142,12 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             let matches = try modelContext.fetch(descriptor)
             completion(!matches.isEmpty)
         } catch {
-            print("搜索消息失败: \(error.localizedDescription)")
+            print("Search Messages Failed: \(error.localizedDescription)")
             completion(false)
         }
     }
     
-    // 在会话列表和消息内容中搜索
+    // Search in the session list and message content
     func searchAllContent(query: String, completion: @escaping ([ChatSession]) -> Void) {
         if query.isEmpty {
             completion(sessions)
@@ -174,15 +156,15 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         
         let lowercaseQuery = query.lowercased()
         
-        // 首先，找出标题中包含查询词的会话
+        // Firstly, find the sessions that contain the query word in the title.
         var matchingSessions = sessions.filter { session in
             session.title.lowercased().contains(lowercaseQuery)
         }
         
-        // 创建一个调度组，用于等待所有搜索完成
+        //Create a Dispatch group to wait for all searches to complete
         let group = DispatchGroup()
         
-        // 对于每个未匹配的会话，搜索它们的消息内容
+        // For each unmatched session, search their message content
         for session in sessions {
             if !matchingSessions.contains(where: { $0.id == session.id }) {
                 group.enter()
@@ -198,79 +180,32 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             }
         }
         
-        // 当所有搜索完成时，返回结果
+        // When all searches are completed, return the results.
         group.notify(queue: .main) {
             completion(matchingSessions)
         }
     }
     
-    // 删除会话
-    //    func deleteSession(session: ChatSession) {
-    //        // 删除所有关联的消息
-    //        do {
-    //            // 简单方式
-    //            let predicate = #Predicate<ChatMessage> { message in
-    //                message.ssid == session.id
-    //            }
-    //
-    //            // 创建 FetchDescriptor
-    //            let descriptor = FetchDescriptor<ChatMessage>(
-    //                predicate: predicate,
-    //                sortBy: [SortDescriptor(\.sequence)]
-    //            )
-    //
-    //            // 执行查询
-    //            let messages = try modelContext.fetch(descriptor)
-    //
-    //            // 删除消息
-    //            for message in messages {
-    //                modelContext.delete(message)
-    //            }
-    //
-    //            // 删除会话
-    //            modelContext.delete(session)
-    //
-    //            try modelContext.save()
-    //
-    //            // 更新会话列表
-    //            DispatchQueue.main.async {
-    //                self.sessions.removeAll(where: { $0.id == session.id })
-    //
-    //                // 如果删除的是当前会话，创建新会话或切换到其他会话
-    //                if self.currentSession.id == session.id {
-    //                    if let firstSession = self.sessions.first {
-    //                        self.switchSession(to: firstSession)
-    //                    } else {
-    //                        self.createNewSession()
-    //                    }
-    //                }
-    //            }
-    //        } catch {
-    //            print("删除会话失败: \(error.localizedDescription)")
-    //        }
-    //    }
-    //
-    
-    //AI回复
+    //AI Answer
     func streamAnswer(requestURL: String, apiKey: String, requestModel: String, systemMessage: String = "You are a helpful assistant", userMessage: String, userMessageWithoutFile: String = "", enableWebSearch: Bool = false) {
         
         var chatHistoryString = ""
         
-        // 检查当前选择的模型类型
+        // Check the current selected model type
         if let selectedModel = modelSettings.selectedModel, selectedModel.modelType == .image {
-            // 对于图像模型，调用generateImage
+            // For Image Model，Use generateImage
             generateImage(prompt: userMessage)
             return
         }
         
-        // 首先获取该会话的历史聊天记录
+        // Get History messages
         do {
             
             let messages = currentSession!.messages
             
-            // 格式化聊天历史记录
+            // Clear History
             var formattedHistory = ""
-            // 只取最近的10条消息
+            // Get the most recent 10 messages
             let recentMessages = messages.sorted(by: { $0.sequence < $1.sequence }).suffix(10)
             
             for message in recentMessages {
@@ -280,11 +215,10 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             
             chatHistoryString = formattedHistory
             
-            // 添加用户消息到聊天记录
+            // Add user message
             let messageToAdd = userMessageWithoutFile.isEmpty ? userMessage : userMessageWithoutFile
-            self.addUserMessage(messageToAdd)
             
-            // 继续处理，将历史记录传入进行API调用
+            // Continue processing, pass the history into the API call
             DispatchQueue.main.async {
                 self.continueStreamAnswerWithHistory(
                     requestURL: requestURL,
@@ -297,10 +231,9 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 )
             }
         } catch {
-            print("获取聊天记录失败: \(error.localizedDescription)")
-            // 出错时也添加用户消息并继续
+            print("Fail to get messages history: \(error.localizedDescription)")
+            // When an error occurs, also add a user message and continue.
             let messageToAdd = userMessageWithoutFile.isEmpty ? userMessage : userMessageWithoutFile
-            self.addUserMessage(messageToAdd)
             
             self.continueStreamAnswerWithHistory(
                 requestURL: requestURL,
@@ -314,7 +247,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         }
     }
     
-    // 添加同步方法，确保chatMessages和数据库中的消息保持一致
+    // sync chatMessages and the messages in SwiftData
     func synchronizeMessages(for sessionId: String) {
         do {
             let descriptor = FetchDescriptor<ChatMessage>(
@@ -323,17 +256,17 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             )
             chatMessages = try modelContext.fetch(descriptor)
         } catch {
-            print("同步消息失败: \(error.localizedDescription)")
+            print("Fail to sync message: \(error.localizedDescription)")
         }
     }
     
     
     private func continueStreamAnswerWithHistory(requestURL: String, apiKey: String, requestModel: String, systemMessage: String, userMessage: String, chatHistory: String, enableWebSearch: Bool = false) {
         
-        // 同步确保chatMessages是最新的
+        // Make sure chatMessages are updated
         synchronizeMessages(for: self.currentSession!.id)
         
-        // 预先创建一个空的AI回复消息
+        // a blank AI answer
         let aiMessageId = UUID().uuidString
         let aiMessage = ChatMessage(
             id: aiMessageId,
@@ -361,27 +294,27 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             self.isAnswering = true
             self.chatMessages.append(aiMessage)
             
-            // 添加到数据库
+            // Add to swiftData
             self.modelContext.insert(aiMessage)
             
-            // 添加到当前会话
+            // Add to current session
             self.currentSession!.messages.append(aiMessage)
             
-            // 保存更改
+            // save to the context
             do {
                 try self.modelContext.save()
             } catch {
-                print("保存AI消息失败: \(error.localizedDescription)")
+                print("Fail to save AI answer: \(error.localizedDescription)")
             }
         }
         
         guard let url = URL(string: requestURL) else { return }
         
-        // 检查是否需要使用代理
+        // Check if needs proxy
         let providerName = getProviderNameFromURL(requestURL)
         let configuration = URLSessionConfiguration.default
         
-        // 如果是Anthropic或OpenAI，并且有代理设置，则配置代理
+        // if the provider is Anthropic or OpenAI，and proxy setting is set, use proxy
         if (providerName == "Anthropic" || providerName == "OpenAI"),
            let proxyURL = URL(string: modelSettings.proxyURL), !modelSettings.proxyURL.isEmpty {
             let host = proxyURL.host ?? "127.0.0.1"
@@ -395,10 +328,10 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 kCFNetworkProxiesHTTPSProxy: host,
                 kCFNetworkProxiesHTTPSPort: port
             ]
-            //            print("使用代理: \(host):\(port) 用于 \(providerName)")
+            print("Use proxy: \(host):\(port) for \(providerName)")
         }
         
-        // 为每个请求创建新的URLSession
+        // Use URLSession for every request
         self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
         
         
@@ -410,19 +343,16 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
-        // 检测是否为Anthropic API并特殊处理授权头
+        // if the provider is Anthropic API, adjust to a different Authorization format
         if providerName == "Anthropic" {
-            // Anthropic API要求特定的Authorization头格式
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         } else {
-            // 其他API使用标准Bearer格式
+            // Other API: standard Bearer format
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         
-        
-        
-        // 构建请求体
+        // Make request
         let messages: [[String: String]]
         
         if providerName == "Anthropic" {
@@ -449,10 +379,10 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 "messages": messages,
                 "max_tokens": 20000,
                 "system":"总是用中文回答问题，如果涉及修改代码，总是用diff格式输出。",
-                "stream": true  // 确保stream设置为true
+                "stream": true  // Make sure to set stream as "true"
             ]
             
-            // 如果是思考模式，添加thinking参数
+            // If thinking mode is on，add thinking property
             if isThinkingMode {
                 postData["thinking"] = [
                     "type": "enabled",
@@ -461,7 +391,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 //print("启用思考模式，budget_tokens: 16000")
             }
         } else if providerName == "腾讯混元" && enableWebSearch {
-            // 为腾讯混元启用联网搜索功能
+            // Add Search function to hunyuan model
             postData = [
                 "model": requestModel,
                 "messages": messages,
@@ -474,13 +404,9 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             postData = [
                 "model": requestModel,
                 "messages": messages,
-                "stream": true  // 确保stream设置为true
+                "stream": true
             ]
         }
-        
-        
-        
-        
         
         guard let jsonData = try? JSONSerialization.data(withJSONObject: postData) else {
             print("Failed to convert data to JSON")
@@ -491,15 +417,13 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         
         let task = self.session.dataTask(with: request)
         
-        print("开始发送请求...")
+        print("Making request...")
         self.activeTask = task
         task.resume()
-        //    }
-        //    }
     }
     
     
-    // 从URL识别API提供商
+    // Identify providers from URL
     private func getProviderNameFromURL(_ urlString: String) -> String {
         if urlString.contains("anthropic.com") {
             return "Anthropic"
@@ -521,25 +445,22 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         return "Unknown"
     }
     
-    // 接收到数据块时调用
+    // Invoke when receiving a data block
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         
-        // 转换数据为字符串
+        // Data to String
         guard let dataString = String(data: data, encoding: .utf8) else { return }
         
-        // 打印原始返回数据用于调试
-        // print("收到数据: \(dataString)")
+        // Print the original returned data for debugging
+        // print("Data received: \(dataString)")
         
-        
-        
-        
-        //检查是否为错误相应
+        // Check if it is an error response
         if let httpResponse = dataTask.response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-            // 尝试解析错误信息
+            // Parse error message
             if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                var detailedError = "API错误: "
+                var detailedError = "API Error: "
                 
-                // 尝试提取错误详情
+                // Extract error details
                 if let error = errorJson["error"] as? [String: Any] {
                     if let message = error["message"] as? String {
                         detailedError += message
@@ -554,7 +475,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                     detailedError += dataString
                 }
                 
-                print("错误详情: \(detailedError)")
+                print("Error Detail: \(detailedError)")
                 DispatchQueue.main.async {
                     self.errorMessage = detailedError
                 }
@@ -565,38 +486,38 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         let isAnthropicAPI = dataTask.currentRequest?.url?.absoluteString.contains("anthropic.com") ?? false
         let isTencentAPI = dataTask.currentRequest?.url?.absoluteString.contains("hunyuan.cloud.tencent.com") ?? false
         
-        // 每个块之间用换行符分隔
+        // Each block is separated by a newline character.
         let lines = dataString.split(separator: "\n")
         
         for line in lines {
-            //忽略空行
+            //Ignore empty lines
             if line.isEmpty { continue }
             
             
             if isAnthropicAPI {
-                // 检查是否是数据行
+                // Check if it is a data row
                 if !line.hasPrefix("data: ") { continue }
-                let jsonString = line.dropFirst(6) // 删除"data: "前缀
+                let jsonString = line.dropFirst(6) // Delete "data: " prefix
                 
-                // 忽略 [DONE] 消息
+                // Ignore [DONE] message
                 if jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "[DONE]" {
                     continue
                 }
                 
-                // 尝试解析JSON
+                // Parse JSON
                 guard let jsonData = jsonString.data(using: .utf8),
                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                     continue
                 }
                 
                 
-                // 打印完整的JSON响应，以便查看所有字段
-                //                print("Anthropic 返回JSON: \(json)")
+                // Print JSON response
+                //                print("Anthropic response JSON: \(json)")
                 
-                // 处理错误响应
+                // Handle error
                 if let type = json["type"] as? String, type == "error" {
-                    // 提取错误信息
-                    var errorMessage = "Anthropic API 错误"
+                    // Extract Error information
+                    var errorMessage = "Anthropic API Error"
                     
                     if let error = json["error"] as? [String: Any] {
                         if let message = error["message"] as? String {
@@ -604,22 +525,21 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                         }
                         
                         if let type = error["type"] as? String {
-                            errorMessage += " (类型: \(type))"
+                            errorMessage += " (Type: \(type))"
                         }
                         
                         if let code = error["code"] as? String {
-                            errorMessage += " [代码: \(code)]"
+                            errorMessage += " [Code: \(code)]"
                         }
                     }
                     
-                    print("完整错误信息: \(errorMessage)")
+                    print("Error Message: \(errorMessage)")
                     
-                    // 更新UI显示错误信息
+                    // Update UI to display Error
                     DispatchQueue.main.async {
                         self.errorMessage = errorMessage
                         self.isLoading = false
                     }
-                    
                     continue
                 }
                 
@@ -629,22 +549,19 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                         if let delta = json["delta"] as? [String: Any],
                            let deltaType = delta["type"] as? String {
                             
-                            // 处理思考文本
+                            // Handle thinking responses
                             if deltaType == "thinking_delta", let thinking = delta["thinking"] as? String {
-                                //                                print("收到思考内容: \(thinking)")
-                                //                                DispatchQueue.main.async {
-                                //                                    self.thinkingText += thinking
-                                //                                }
-                                // 累积思考内容到缓冲区
+                                //                                print("thinking: \(thinking)")
+                                // Accumulate thinking content into the buffer
                                 self.thinkingBuffer += thinking
                                 
-                                // 检查是否应该更新UI
+                                // Check if needs to update UI
                                 let now = Date()
-                                if now.timeIntervalSince(self.lastThinkingUpdate) > 0.5 { // 500毫秒批量更新
+                                if now.timeIntervalSince(self.lastThinkingUpdate) > 0.5 { // 500 milliseconds batch update
                                     self.flushThinkingBuffer()
                                 }
                             }
-                            // 处理普通文本
+                            // Process normal content
                             else if deltaType == "text_delta", let text = delta["text"] as? String {
                                 DispatchQueue.main.async {
                                     self.responseText += text
@@ -652,87 +569,74 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                             }
                         }
                     case "message_start", "content_block_start", "content_block_stop", "message_delta", "message_stop":
-                        // 记录事件类型但不需要特殊处理
-                        print("事件类型: \(type)")
+                        // Record the event type but no special handling is required.
+                        print("Event Type: \(type)")
                     default:
-                        print("未知事件类型: \(type)")
+                        print("Unknown Type: \(type)")
                     }
                 }
                 
             } else if isTencentAPI {
                 guard line.hasPrefix("data: ") else { continue }
                 
-                // 提取JSON部分
+                // Extract JSON
                 let jsonString = line.dropFirst(6) // 删除"data: "前缀
                 
-                // 忽略[DONE]消息
+                // Ignore [DONE] Message
                 if jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "[DONE]" {
                     continue
                 }
                 
-                // 解析JSON
-                // 打印调试信息，查看收到的数据格式
-                print("腾讯混元原始数据: \(jsonString)")
+                // Parse JSON
+                //                print("hunyuan response content: \(jsonString)")
                 
                 
                 if let jsonData = jsonString.data(using: .utf8),
                    let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
                     
-                    // 处理常规输出
-                    //                               if let choices = json["Choices"] as? [[String: Any]],
-                    //                                  let firstChoice = choices.first,
-                    //                                  let delta = firstChoice["Delta"] as? [String: Any],
-                    //                                  let content = delta["Content"] as? String {
-                    
-                    // 检查不同格式的响应结构
+                    // Check different formats of response structures
                     if let choices = json["choices"] as? [[String: Any]] {
                         if let firstChoice = choices.first {
-                            // 尝试解析 Delta 格式
+                            // Parse Delta format
                             if let delta = firstChoice["delta"] as? [String: Any],
                                let content = delta["content"] as? String {
-                                // 更新UI
+                                // Update UI
                                 DispatchQueue.main.async {
-                                    print("收到腾讯混元内容: \(content)")
+                                    print("Get hunyuan Content: \(content)")
                                     self.responseText += content
                                 }
                             }
-                            // 尝试解析非 Delta 格式
+                            // Parse none Delta format
                             else if let content = firstChoice["content"] as? String {
                                 DispatchQueue.main.async {
-                                    print("收到腾讯混元内容(非Delta): \(content)")
+                                    print("Get hunyuan Content(!Delta): \(content)")
                                     self.responseText += content
                                 }
                             }
                         }
                     }
                     
-                    //                                   // 更新UI
-                    //                                   DispatchQueue.main.async {
-                    //                                       self.responseText += content
-                    //                                   }
-                    
-                    
-                    // 处理搜索引用
+                    // Handle Search Reference
                     if let searchInfo = json["search_info"] as? [String: Any],
                        let searchResults = searchInfo["search_results"] as? [[String: Any]] {
                         
-                        print("收到搜索引用数据: \(searchResults.count) 条")
+                        print("Count of Search reference: \(searchResults.count)")
                         let references = searchResults.compactMap { result -> SearchReference? in
                             guard let index = result["index"] as? Int,
                                   let title = result["title"] as? String,
                                   let url = result["url"] as? String else {
-                                print("引用数据格式不符: \(result)")
+                                print("Data format error: \(result)")
                                 return nil
                             }
                             
                             return SearchReference(index: index, title: title, url: url)
                         }
                         
-                        // 更新引用数据
+                        // Update references data
                         if !references.isEmpty {
                             DispatchQueue.main.async {
-                                print("添加 \(references.count) 条引用")
-                                // 只添加新的引用
+                                print("Add \(references.count) references")
+                                // Only add new reference
                                 for reference in references {
                                     if !self.searchReferences.contains(where: { $0.index == reference.index }) {
                                         self.searchReferences.append(reference)
@@ -749,14 +653,14 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                 
                 
                 // 提取JSON部分
-                let jsonString = line.dropFirst(6) // 删除"data: "前缀
+                let jsonString = line.dropFirst(6) // Delete "data: " prefix
                 
-                // 忽略[DONE]消息
+                // Ignore [DONE] message
                 if jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "[DONE]" {
                     continue
                 }
                 
-                // 解析JSON
+                // Parse JSON
                 if let jsonData = jsonString.data(using: .utf8),
                    let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                    let choices = json["choices"] as? [[String: Any]],
@@ -764,7 +668,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                    let delta = firstChoice["delta"] as? [String: Any],
                    let content = delta["content"] as? String {
                     
-                    // 更新UI
+                    // Update UI
                     DispatchQueue.main.async {
                         self.responseText += content
                     }
@@ -775,7 +679,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         }
     }
     
-    // 添加新方法来刷新思考内容缓冲区
+    // Update thinking buffer
     private func flushThinkingBuffer() {
         guard !thinkingBuffer.isEmpty else { return }
         
@@ -788,23 +692,23 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         }
     }
     
-    // 接收到响应时调用
+    // Invoke when get response
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-        //        print("收到响应头，状态码: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        //        print("Receive response header，status code: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
         
-        // 确保刷新任何剩余的思考内容
+        // Make sure to update remaining thinking content
         if !thinkingBuffer.isEmpty {
             flushThinkingBuffer()
         }
         
         if let httpResponse = response as? HTTPURLResponse {
             let statusCode = httpResponse.statusCode
-            print("收到响应头，状态码: \(statusCode)")
+            print("Receive response header，status code: \(statusCode)")
             
-            // 对于错误状态码，将其记录到errorMessage中
+            // For Error status code，add to errorMessage.
             if statusCode >= 400 {
                 DispatchQueue.main.async {
-                    self.errorMessage = "错误状态码: \(statusCode)"
+                    self.errorMessage = "Error status code: \(statusCode)"
                     self.isLoading = false
                 }
             }
@@ -813,31 +717,37 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         completionHandler(.allow)
     }
     
-    // 任务完成时调用
+    // Invoke when session is finished
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        
+        // Make sure to update remaining thinking content
+        if !thinkingBuffer.isEmpty {
+            flushThinkingBuffer()
+        }
+        
         if let error = error {
-            //            print("任务出错: \(error.localizedDescription)")
-            // 检查错误是否是用户取消操作
+            //            print("Error: \(error.localizedDescription)")
+            // Check if the error is by user's cancel action
             let nsError = error as NSError
             let isCancelled = nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
             
             if isCancelled {
-                print("用户手动停止了AI响应")
+                print("User cancel the AI answer manually")
                 
-                // 即使是取消操作，也保存当前接收到的响应
+                // Even if it is a cancel operation, save the current received response
                 DispatchQueue.main.async {
                     self.saveCurrentResponse()
                     self.isAnswering = false
                 }
             } else {
-                print("任务出错: \(error.localizedDescription)")
+                print("Error: \(error.localizedDescription)")
             }
             DispatchQueue.main.async {
                 self.isLoading = false
             }
         } else {
-            print("任务成功完成")
-            // 当任务完成时，将当前的responseText添加为AI回复
+            print("Session finished")
+            // When session finished，make responseText as AI response
             DispatchQueue.main.async {
                 self.saveCurrentResponse()
                 self.isLoading = false
@@ -850,14 +760,14 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         if !self.responseText.isEmpty {
             
             
-            // 更新最后一条AI消息的内容
+            // update last AI content
             if let lastIndex = self.chatMessages.lastIndex(where: { $0.character == "ai" }) {
                 let updatedMessage = self.chatMessages[lastIndex]
                 
-                // 构建最终的回复内容，包括引用
+                // final Content，including references
                 var finalContent = self.responseText
                 
-                // 如果有搜索引用，添加到内容末尾
+                // if references, add to the end of the content
                 if !self.searchReferences.isEmpty {
                     finalContent += "\n\n---\n\n"
                     finalContent += "\n\n**参考资料：**\n"
@@ -866,52 +776,46 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                     }
                 }
                 
-                
-                //                updatedMessage.chat_content = self.responseText
                 updatedMessage.chat_content = finalContent
                 
-                // 保存思考内容到消息的附加属性中
+                // Save the content of thoughts to the attached attributes of the message
                 if !self.thinkingText.isEmpty {
                     updatedMessage.thinking_content = self.thinkingText
                 }
                 
-                // 保存当前模型信息到消息中
+                // Add model information to SwiftData
                 if let currentModel = self.modelSettings.selectedModel {
                     updatedMessage.providerName = currentModel.providerName
                     updatedMessage.modelName = currentModel.name
                 }
                 
                 self.chatMessages[lastIndex] = updatedMessage
-                //                        print(self.chatMessages) //打印聊天数据
                 
-                // 保存AI回复到数据库
-                // 保存到数据库
+                // Save AI response to SwiftData
                 do {
                     try self.modelContext.save()
-                    print("AI回复已保存")
-                    print("添加AI回复后")
+                    print("AI response saved.")
+                    print("After AI answer: ")
                     for message in self.chatMessages {
-                        print("ID: \(message.id), SSID: \(message.ssid), 角色: \(message.character), 内容: \(message.chat_content)")
+                        print("ID: \(message.id), SSID: \(message.ssid), character: \(message.character), content: \(message.chat_content)")
                     }
                 } catch {
-                    print("保存AI回复失败: \(error.localizedDescription)")
+                    print("Fail to save AI response: \(error.localizedDescription)")
                 }
             }
         }
     }
     
-    // 增加生成图片的方法
+    // Generate Images
     func generateImage(prompt: String) {
-        // 添加用户消息到聊天记录
-        addUserMessage(prompt)
         
-        // 预先创建一个空的AI回复消息，用于实时更新
+        // Create an empty aiMessage
         let aiMessage = ChatMessage(
             id: UUID().uuidString,
             ssid: self.currentSession!.id,
             character: "ai",
             chat_title: self.currentSession!.title,
-            chat_content: "生成图片中...",
+            chat_content: "Generating Images...",
             thinking_content: "",
             isThinkingExpanded: true,
             imageUrl: "",
@@ -930,7 +834,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             self.isLoading = true
             self.chatMessages.append(aiMessage)
             
-            // 添加到数据库
+            // Add to SwiftData
             self.modelContext.insert(aiMessage)
             self.currentSession!.messages.append(aiMessage)
             try? self.modelContext.save()
@@ -939,27 +843,27 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         guard let selectedModel = modelSettings.selectedModel,
               let url = URL(string: selectedModel.baseUrl) else {
             DispatchQueue.main.async {
-                self.errorMessage = "模型配置错误"
+                self.errorMessage = "Model Configation Error"
                 self.isLoading = false
             }
             return
         }
         
-        // 配置请求
+        // Config request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(selectedModel.apiKey)", forHTTPHeaderField: "Authorization")
         
         // 打印所有请求头信息（但遮盖API密钥部分内容）
-        print("====== 请求信息 ======")
-        print("URL: \(request.url?.absoluteString ?? "未知")")
-        print("HTTP方法: \(request.httpMethod ?? "未知")")
-        print("请求头:")
+        //        print("====== 请求信息 ======")
+        //        print("URL: \(request.url?.absoluteString ?? "未知")")
+        //        print("HTTP方法: \(request.httpMethod ?? "未知")")
+        //        print("请求头:")
         if let allHTTPHeaderFields = request.allHTTPHeaderFields {
             for (key, value) in allHTTPHeaderFields {
                 if key.lowercased() == "authorization" {
-                    // 只显示API密钥的前10个字符和后4个字符，中间用***替代
+                    // Only the first 10 and last 4 characters of the API key are displayed, others replaced with ***
                     let apiKeyPrefix = String(value.prefix(15))
                     let apiKeySuffix = value.count > 4 ? String(value.suffix(4)) : ""
                     print("  \(key): \(apiKeyPrefix)***\(apiKeySuffix)")
@@ -969,7 +873,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             }
         }
         
-        // 构建请求体
+        // Make request
         let requestData: [String: Any] = [
             "model": selectedModel.name.isEmpty ? "dall-e-3" : selectedModel.name,
             "prompt": prompt,
@@ -981,7 +885,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestData) else {
             DispatchQueue.main.async {
-                self.errorMessage = "生成请求数据失败"
+                self.errorMessage = "Request Error"
                 self.isLoading = false
             }
             return
@@ -989,7 +893,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         
         request.httpBody = jsonData
         
-        // 创建会话配置
+        // Session Configation
         let configuration = URLSessionConfiguration.default
         if shouldUseProxy() {
             if let proxyConfig = modelSettings.getProxyConfiguration() {
@@ -997,17 +901,14 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             }
         }
         
-        // 创建会话并发送请求
+        // Create session and make request
         let session = URLSession(configuration: configuration)
         let task = session.dataTask(with: request) { [weak self] data, response, error in
             
-            // 清除活跃任务引用
+            // clear activeTask
             self?.activeTask = nil
             
             guard let self = self else { return }
-            
-            
-            
             
             DispatchQueue.main.async {
                 self.isLoading = false
@@ -1015,39 +916,39 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             
             if let error = error {
                 DispatchQueue.main.async {
-                    self.errorMessage = "请求失败: \(error.localizedDescription)"
+                    self.errorMessage = "Fail to request: \(error.localizedDescription)"
                 }
                 return
             }
             
             guard let data = data else {
                 DispatchQueue.main.async {
-                    self.errorMessage = "没有返回数据"
+                    self.errorMessage = "No response data"
                 }
                 return
             }
             
-            // 解析响应JSON
+            // Parse JSON
             do {
                 if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let data = json["data"] as? [[String: Any]],
                    let firstImage = data.first,
                    let imageUrl = firstImage["url"] as? String {
                     
-                    // 更新AI消息
+                    // Update AI message
                     DispatchQueue.main.async {
                         if let lastIndex = self.chatMessages.lastIndex(where: { $0.character == "ai" }) {
                             var updatedMessage = self.chatMessages[lastIndex]
-                            updatedMessage.chat_content = "图片已生成:"
+                            updatedMessage.chat_content = "Image Generated:"
                             updatedMessage.imageUrl = imageUrl
                             self.chatMessages[lastIndex] = updatedMessage
                             
-                            // 保存到数据库
+                            // Save to SwiftData
                             do {
                                 try self.modelContext.save()
-                                print("AI图片已保存")
+                                print("AI Image Saved.")
                             } catch {
-                                print("保存AI图片消息失败: \(error.localizedDescription)")
+                                print("Fail to save Image: \(error.localizedDescription)")
                             }
                         }
                     }
@@ -1056,18 +957,18 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
                     if let error = errorJson["error"] as? [String: Any]{
                         if let message = error["message"] as? String {
                             DispatchQueue.main.async {
-                                self.errorMessage = "API错误: \(message)"
+                                self.errorMessage = "API Error: \(message)"
                             }
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.errorMessage = "无法解析API响应"
+                        self.errorMessage = "Cannot parse API response"
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.errorMessage = "解析响应失败: \(error.localizedDescription)"
+                    self.errorMessage = "Fail to parse response: \(error.localizedDescription)"
                 }
             }
         }
@@ -1076,77 +977,68 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
         self.activeTask = task
     }
     
-    // 判断是否需要使用代理
+    // check if needs to use Proxy
     func shouldUseProxy() -> Bool {
         guard let model = modelSettings.selectedModel else { return false }
         return model.providerName == "Anthropic" || model.providerName == "OpenAI" || model.providerName == "DALL-E-3"
     }
     
-    // 停止流式响应的方法
+    // Cut Streaming
     func stopStreamResponse() {
         
-        // 确保刷新任何剩余的思考内容
+        // Make sure to update remaining thinking content
         if !thinkingBuffer.isEmpty {
             flushThinkingBuffer()
         }
         
-        // 在取消任务前保存当前收到的响应
+        // Save currently received responses before canceling tasks
         DispatchQueue.main.async {
             self.saveCurrentResponse()
-            // 清空临时响应文本，避免重复显示
+            // Clear temporary response text to avoid duplicate display
             self.responseText = ""
             self.thinkingText = ""
             self.isLoading = false
-            print("用户手动停止了AI响应")
+            print("User stop AI answer streaming manually")
         }
         
-        // 取消当前活跃的数据任务
+        // Cancel active tasks
         if let task = self.activeTask {
             task.cancel()
             self.activeTask = nil
-            
-            // 更新UI状态
-            //                DispatchQueue.main.async {
-            //                    self.isLoading = false
-            //                    print("用户手动停止了AI响应")
-            //                }
         }
     }
     
 }
 
-// ChatViewModel的扩展，添加文件处理相关功能
+// ChatViewModel extension，Add file handling function
 extension ChatViewModel {
     
-    // 处理智谱AI的文件请求
+    // Handle file request from chatglm
     func handleFileRequest(fileId: String, prompt: String) {
-        // 设置加载状态
+        // Add loading status
         DispatchQueue.main.async {
             self.isLoading = true
         }
         
-        // 获取当前选中的模型或默认模型
+        // Get selected model or current model
         let apiKey = modelSettings.selectedModel?.apiKey ?? modelSettings.apiKey
         let model = ((modelSettings.selectedModel?.name.isEmpty) != nil) ?
         "glm-4-long" : modelSettings.selectedModel?.name ?? "glm-4-long"
         
-        // 首先获取文件内容
+        // First get content of the file
         FileUploadManager.shared.getFileContent(fileId: fileId, apiKey: apiKey) { [weak self] result in
             guard let self = self else { return }
             
             switch result {
             case .success(let content):
-                // 构建请求消息
+                // Make request
                 var messageContent = prompt
                 if !messageContent.isEmpty {
                     messageContent += "\n\n"
                 }
                 messageContent += "文件内容：\n\(content)"
                 
-                // 添加用户消息
-                self.addUserMessage(prompt.isEmpty ? "请分析上传的文件" : prompt)
-                
-                // 使用文件内容创建流式响应
+                // Make stream request with uploaded files
                 self.streamAnswerWithFileContent(
                     content: messageContent,
                     model: model,
@@ -1155,26 +1047,26 @@ extension ChatViewModel {
                 
             case .failure(let error):
                 DispatchQueue.main.async {
-                    self.errorMessage = "获取文件内容失败: \(error.localizedDescription)"
+                    self.errorMessage = "Fail to get content of files: \(error.localizedDescription)"
                     self.isLoading = false
                 }
             }
         }
     }
     
-    // 使用文件内容创建流式响应
+    // Stream Answer with file content
     private func streamAnswerWithFileContent(content: String, model: String, apiKey: String) {
-        // 检查API密钥是否存在
+        // check if apiKey is empty
         guard !apiKey.isEmpty else {
             DispatchQueue.main.async {
-                self.errorMessage = "API密钥未设置"
+                self.errorMessage = "API Key did not exist."
                 self.isLoading = false
             }
             return
         }
         
         
-        // 预先创建一个空的AI回复消息，用于实时更新
+        // Create an empty AI message
         let aiMessage = ChatMessage(
             id: UUID().uuidString,
             ssid: self.currentSession!.id,
@@ -1199,28 +1091,28 @@ extension ChatViewModel {
             self.isLoading = true
             self.chatMessages.append(aiMessage)
             
-            // 添加到数据库
+            // Add to SwiftData
             self.modelContext.insert(aiMessage)
             self.currentSession!.messages.append(aiMessage)
             try? self.modelContext.save()
         }
         
-        // 创建请求URL
+        // Create request URL
         guard let url = URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions") else {
             DispatchQueue.main.async {
-                self.errorMessage = "无效的API URL"
+                self.errorMessage = "Invalid API URL"
                 self.isLoading = false
             }
             return
         }
         
-        // 创建请求
+        // Make request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
-        // 构建请求体
+        // Request body
         let requestBody: [String: Any] = [
             "model": model,
             "messages": [
@@ -1231,10 +1123,10 @@ extension ChatViewModel {
             "max_tokens": 32000
         ]
         
-        // 将请求体转换为JSON数据
+        // Transform request body to JSON format
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             DispatchQueue.main.async {
-                self.errorMessage = "创建请求数据失败"
+                self.errorMessage = "Request Body data created failed."
                 self.isLoading = false
             }
             return
@@ -1242,7 +1134,7 @@ extension ChatViewModel {
         
         request.httpBody = jsonData
         
-        // 创建URL会话
+        // Create URL session
         let configuration = URLSessionConfiguration.default
         if shouldUseProxy() {
             if let proxyConfig = modelSettings.getProxyConfiguration() {
@@ -1252,26 +1144,26 @@ extension ChatViewModel {
         
         self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
         
-        // 发送请求
+        // Send request
         let task = session.dataTask(with: request)
         task.resume()
     }
     
-    // 添加多个文件并处理
+    // Multiple files
     func processMultipleFiles(files: [UploadedFile], prompt: String) {
-        // 设置加载状态
+        // Loading status
         DispatchQueue.main.async {
             self.isLoading = true
         }
         
-        // 获取当前选中的模型或默认模型
+        // Get selected model or current model
         let apiKey = modelSettings.selectedModel?.apiKey ?? modelSettings.apiKey
         
-        // 需要处理的文件数量
+        // Files to handle
         var remainingFiles = files.count
         var fileContents: [String] = []
         
-        // 获取每个文件的内容
+        // Get content of each file
         for file in files {
             if let fileId = file.fileId {
                 FileUploadManager.shared.getFileContent(fileId: fileId, apiKey: apiKey) { [weak self] result in
@@ -1281,30 +1173,27 @@ extension ChatViewModel {
                     case .success(let content):
                         fileContents.append("文件 '\(file.name)' 内容：\n\(content)\n\n")
                     case .failure(let error):
-                        print("获取文件内容失败: \(error.localizedDescription)")
+                        print("Fail to get content: \(error.localizedDescription)")
                     }
                     
                     remainingFiles -= 1
                     
-                    // 当所有文件处理完毕，发送请求
+                    // When files are uploaded, send request
                     if remainingFiles == 0 {
-                        // 构建请求消息
+                        // Make request
                         var messageContent = prompt
                         if !messageContent.isEmpty && !fileContents.isEmpty {
                             messageContent += "\n\n"
                         }
                         
-                        // 添加所有文件内容
+                        // Add content of all files
                         messageContent += fileContents.joined()
                         
-                        // 添加用户消息
-                        self.addUserMessage(prompt.isEmpty ? "请分析上传的\(files.count)个文件" : prompt)
-                        
-                        // 获取当前选中的模型
+                        // Get selected model
                         let model = ((self.modelSettings.selectedModel?.name.isEmpty) != nil) ?
                         "glm-4-long" : self.modelSettings.selectedModel?.name ?? "glm-4-long"
                         
-                        // 使用文件内容创建流式响应
+                        // Stream Answer with file content
                         self.streamAnswerWithFileContent(
                             content: messageContent,
                             model: model,
@@ -1315,34 +1204,32 @@ extension ChatViewModel {
             } else {
                 remainingFiles -= 1
                 
-                // 当所有文件处理完毕，检查是否需要发送请求
+                // When all files uploaded, check if needs to send quest
                 if remainingFiles == 0 && !fileContents.isEmpty {
-                    // 构建请求消息
+                    // Make request
                     var messageContent = prompt
                     if !messageContent.isEmpty && !fileContents.isEmpty {
                         messageContent += "\n\n"
                     }
                     
-                    // 添加所有文件内容
+                    // Add content of all files
                     messageContent += fileContents.joined()
                     
-                    // 添加用户消息
-                    self.addUserMessage(prompt.isEmpty ? "请分析上传的文件" : prompt)
                     
-                    // 获取当前选中的模型
+                    // Get selected model
                     let model = ((self.modelSettings.selectedModel?.name.isEmpty) != nil) ?
                     "glm-4-long" : self.modelSettings.selectedModel?.name ?? "glm-4-long"
                     
-                    // 使用文件内容创建流式响应
+                    // Stream Answer with file content
                     self.streamAnswerWithFileContent(
                         content: messageContent,
                         model: model,
                         apiKey: apiKey
                     )
                 } else if remainingFiles == 0 {
-                    // 没有有效的文件内容
+                    // Invalid file content
                     DispatchQueue.main.async {
-                        self.errorMessage = "没有有效的文件内容"
+                        self.errorMessage = "Invalid files."
                         self.isLoading = false
                     }
                 }
@@ -1351,7 +1238,7 @@ extension ChatViewModel {
     }
 }
 
-// 搜索引用结构
+// Search Reference struct
 struct SearchReference: Identifiable {
     let id = UUID()
     let index: Int

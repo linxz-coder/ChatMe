@@ -35,46 +35,42 @@ struct ChatMeApp: App {
             
         }
         .defaultSize(width: 800, height: 600)
-        
-        
     }
     
     init(){
-        // 单例初始化
+        // Singleton initialization
         let container = try! ModelContainer(for: ChatMessage.self, ChatSession.self)
         _chatViewModel = StateObject(wrappedValue: ChatViewModel(
             modelSettings: ModelSettingsData.shared,
             modelContext: container.mainContext
         ))
         
-        //数据库路径
+        // Database path
         print(URL.applicationSupportDirectory.path(percentEncoded: false))
-        // 删除旧的存储文件
-//        deleteOldDataStore()
+        // Delete old storage files
+        //        deleteOldDataStore()
     }
     
     private func deleteOldDataStore() {
-        // 获取应用支持目录
+        // Get the application support directory
         let applicationSupportURL = URL.applicationSupportDirectory
         
-        // 构建持久化存储URL
+        // Build a persistent storage URL
         let storeURL = applicationSupportURL.appendingPathComponent("default.store")
         
         do {
-            // 检查文件是否存在
+            // Check if the file exists
             if FileManager.default.fileExists(atPath: storeURL.path) {
-                // 删除主存储文件
+                // Delete the main storage file
                 try FileManager.default.removeItem(at: storeURL)
-                print("已删除旧的数据存储文件")
+                print("Deleted old storage file.")
                 
-                // 删除相关的SQLite辅助文件
+                // Delete the relevant SQLite auxiliary files
                 try? FileManager.default.removeItem(at: applicationSupportURL.appendingPathComponent("default.store-shm"))
                 try? FileManager.default.removeItem(at: applicationSupportURL.appendingPathComponent("default.store-wal"))
             }
         } catch {
-            print("删除存储文件时出错: \(error)")
+            print("Fail to delete old storage file: \(error)")
         }
     }
-    
-    
 }

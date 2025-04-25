@@ -37,3 +37,10 @@
 "copied" = "已复制";
 "pause" = "暂停播放";
 "play" = "播放";
+"confirm" = "确认";
+"cancel" = "取消";
+"saveToSystem" = "已保存至系统";
+"saveModel" = "已保存模型信息";
+"comingSoon" = "功能未开发";
+"proxyUrl" = "代理URL";
+"proxyNote" = "注意：代理仅用于Anthropic和OpenAI API";

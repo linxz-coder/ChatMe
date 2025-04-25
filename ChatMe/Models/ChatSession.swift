@@ -10,19 +10,19 @@ import SwiftData
 
 @Model
 class ChatSession: Identifiable, Hashable {
-    var id: String //id唯一, 聊天会话ID (ssid)
-    var title: String           // 聊天标题
-    var messages: [ChatMessage] // 该会话中的所有消息
-    var timestamp: Date         // 会话创建时间
-    var username: String        // 用户名称
-    var userid: String            // 用户ID
+    var id: String //Unique id, chat session ID (ssid)
+    var title: String           // Chat title
+    var messages: [ChatMessage] // All messages in the current session
+    var timestamp: Date         // created time
+    var username: String        // username
+    var userid: String            // user ID
     
-    // 实现 Hashable 协议的函数
+    // Hashable protocol
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
     
-    // 添加 Equatable 协议的实现
+    // Equatable protocol
     static func == (lhs: ChatSession, rhs: ChatSession) -> Bool { lhs.id == rhs.id }
     
     init(id: String, title: String, messages: [ChatMessage], timestamp: Date, username: String, userid: String) {

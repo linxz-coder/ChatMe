@@ -63,5 +63,11 @@ struct SettingsView: View {
 }
 
 #Preview {
+    
+    // Create the required environment objects
+    let modelSettings = ModelSettingsData.shared
+    
     SettingsView()
+        .environmentObject(LocalizationManager.shared)
+        .environmentObject(modelSettings)
 }

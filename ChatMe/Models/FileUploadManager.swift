@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-// 支持的文件类型枚举
+// Supported file type enumeration
 enum SupportedFileType: String, CaseIterable {
     case pdf = "pdf"
     case docx = "docx"
@@ -27,7 +27,7 @@ enum SupportedFileType: String, CaseIterable {
     case bmp = "bmp"
     case gif = "gif"
     
-    // 获取所有支持的文件类型的UTI
+    // Retrieve all supported file types' UTI
     static var allUTIs: [String] {
         var utis: [String] = []
         for type in allCases {
@@ -67,7 +67,7 @@ enum SupportedFileType: String, CaseIterable {
         return utis
     }
     
-    // 根据文件UTI返回文件类型
+    // Returns file type based on file UTI
     static func fromUTI(_ uti: String) -> SupportedFileType? {
         switch uti {
         case "com.adobe.pdf":
@@ -105,7 +105,7 @@ enum SupportedFileType: String, CaseIterable {
         }
     }
     
-    // 是否是图片类型
+    // Check if it is Image
     var isImage: Bool {
         switch self {
         case .png, .jpg, .jpeg, .bmp, .gif:
@@ -116,14 +116,14 @@ enum SupportedFileType: String, CaseIterable {
     }
 }
 
-// 上传文件模型
+// Upload File struct
 struct UploadedFile: Identifiable, Equatable {
     let id = UUID()
     let name: String
     let path: URL
     let size: Int64
     let type: SupportedFileType
-    var fileId: String? // 智谱AI返回的文件ID
+    var fileId: String? // the id Chatglm returns
     var isUploading: Bool = false
     var uploadProgress: Double = 0.0
     var errorMessage: String? = nil
@@ -138,56 +138,56 @@ class FileUploadManager: ObservableObject {
     @Published var isUploading: Bool = false
     @Published var errorMessage: String? = nil
     
-    // 单例模式
+    // Singleton pattern
     static let shared = FileUploadManager()
     
     private init() {}
     
-    // 检查文件大小是否符合要求
+    // Check if the file size meets the requirements
     private func validateFileSize(size: Int64, fileType: SupportedFileType) -> Bool {
         if fileType.isImage {
-            // 图片限制5MB
+            // Image size limit 5MB
             return size <= 5 * 1024 * 1024
         } else {
-            // 其他文件限制50MB
+            // Other files limit 50MB
             return size <= 50 * 1024 * 1024
         }
     }
     
-    // 添加文件到列表
+    // Add file to list
     func addFile(path: URL) {
-        // 检查总文件数限制
+        // Check total file number limit
         if uploadedFiles.count >= 100 {
-            errorMessage = "文件数量已达上限(100个)"
+            errorMessage = "The number of files has reached the limit (100)."
             return
         }
         
-        // 获取文件信息
+        // Get file information
         let fileName = path.lastPathComponent
         let fileExtension = path.pathExtension.lowercased()
         
-        // 验证文件类型
+        // Verify file type
         guard let fileType = SupportedFileType(rawValue: fileExtension) else {
-            errorMessage = "不支持的文件类型: .\(fileExtension)"
+            errorMessage = "Unsupported type: .\(fileExtension)"
             return
         }
         
-        // 获取文件大小
+        // Get file size
         do {
             let attributes = try FileManager.default.attributesOfItem(atPath: path.path)
             let fileSize = attributes[.size] as? Int64 ?? 0
             
-            // 验证文件大小
+            // Verify file size
             if !validateFileSize(size: fileSize, fileType: fileType) {
                 if fileType.isImage {
-                    errorMessage = "图片大小超过限制(5MB)"
+                    errorMessage = "Image size exceeds the limit (5MB)"
                 } else {
-                    errorMessage = "文件大小超过限制(50MB)"
+                    errorMessage = "File size exceeds the limit (50MB)"
                 }
                 return
             }
             
-            // 创建新文件对象并添加到列表
+            // Create a new file object and add it to the list
             let newFile = UploadedFile(
                 name: fileName,
                 path: path,
@@ -201,11 +201,11 @@ class FileUploadManager: ObservableObject {
             }
             
         } catch {
-            errorMessage = "读取文件信息失败: \(error.localizedDescription)"
+            errorMessage = "Fail to read file: \(error.localizedDescription)"
         }
     }
     
-    // 移除文件
+    // Remove File
     func removeFile(at index: Int) {
         guard index < uploadedFiles.count else { return }
         
@@ -214,58 +214,57 @@ class FileUploadManager: ObservableObject {
         }
     }
     
-    // 移除所有文件
+    // Remove all files
     func removeAllFiles() {
         DispatchQueue.main.async {
             self.uploadedFiles.removeAll()
         }
     }
     
-    // 上传文件到智谱AI
+    // Upload file to zhipu AI
     func uploadFileToZhipuAI(file: UploadedFile, apiKey: String, completion: @escaping (Result<String, Error>) -> Void) {
-        // 更新文件状态为上传中
+        // Update file status to uploading
         if let index = uploadedFiles.firstIndex(where: { $0.id == file.id }) {
             var updatedFile = uploadedFiles[index]
             updatedFile.isUploading = true
             uploadedFiles[index] = updatedFile
         }
         
-        // 设置请求URL
+        // Set request URL
         guard let url = URL(string: "https://open.bigmodel.cn/api/paas/v4/files") else {
             if let index = uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                 var updatedFile = uploadedFiles[index]
                 updatedFile.isUploading = false
-                updatedFile.errorMessage = "无效的上传URL"
+                updatedFile.errorMessage = "Invalid URL"
                 uploadedFiles[index] = updatedFile
             }
             completion(.failure(NSError(domain: "InvalidURL", code: -1, userInfo: nil)))
             return
         }
         
-        // 创建请求
+        // Make request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
-        // 设置Authorization头
+        // Set request head of Authorization
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
-        // 设置Content-Type为multipart/form-data
+        // Set Content-Type as multipart/form-data
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
-        // 构建请求体
         var data = Data()
         
-        // 添加purpose字段
+        // Add purpose
         data.append("--\(boundary)\r\n".data(using: .utf8)!)
         data.append("Content-Disposition: form-data; name=\"purpose\"\r\n\r\n".data(using: .utf8)!)
-        data.append("file-extract\r\n".data(using: .utf8)!) // 或者根据需要使用"batch"、"retrieval"等
+        data.append("file-extract\r\n".data(using: .utf8)!) // Use "batch"、"retrieval" when needed
         
-        // 添加文件数据
+        // Append file data
         data.append("--\(boundary)\r\n".data(using: .utf8)!)
         data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(file.name)\"\r\n".data(using: .utf8)!)
         
-        // 设置文件类型
+        // Set types of file
         let mimeType: String
         switch file.type {
         case .pdf:
@@ -292,7 +291,7 @@ class FileUploadManager: ObservableObject {
         
         data.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
         
-        // 读取文件数据
+        // Read File Data
         do {
             let fileData = try Data(contentsOf: file.path)
             data.append(fileData)
@@ -301,35 +300,35 @@ class FileUploadManager: ObservableObject {
             if let index = uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                 var updatedFile = uploadedFiles[index]
                 updatedFile.isUploading = false
-                updatedFile.errorMessage = "读取文件数据失败: \(error.localizedDescription)"
+                updatedFile.errorMessage = "Fail to read file data: \(error.localizedDescription)"
                 uploadedFiles[index] = updatedFile
             }
             completion(.failure(error))
             return
         }
         
-        // 添加结束标记
+        // Add end tag
         data.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
-        // 设置请求体
+        // Make request
         request.httpBody = data
         
-        // 打印请求详情以便调试
-        print("上传文件: \(file.name)")
+        // Print request details for debugging
+        print("Upload File: \(file.name)")
         print("URL: \(url.absoluteString)")
         print("Headers: \(request.allHTTPHeaderFields ?? [:])")
-        print("Body大小: \(data.count) 字节")
+        print("Body size: \(data.count) bytes")
         
-        // 创建上传任务
+        // Create upload task
         let task = URLSession.shared.dataTask(with: request) { [weak self] (data, response, error) in
             guard let self = self else { return }
             
             if let error = error {
-                print("上传错误: \(error.localizedDescription)")
+                print("Upload Error: \(error.localizedDescription)")
                 if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                     var updatedFile = self.uploadedFiles[index]
                     updatedFile.isUploading = false
-                    updatedFile.errorMessage = "上传失败: \(error.localizedDescription)"
+                    updatedFile.errorMessage = "Upload Error: \(error.localizedDescription)"
                     DispatchQueue.main.async {
                         self.uploadedFiles[index] = updatedFile
                     }
@@ -338,22 +337,22 @@ class FileUploadManager: ObservableObject {
                 return
             }
             
-            // 打印响应状态和数据
+            // Print response status and data
             if let httpResponse = response as? HTTPURLResponse {
-                print("响应状态码: \(httpResponse.statusCode)")
+                print("StatusCode: \(httpResponse.statusCode)")
                 
                 if httpResponse.statusCode != 200 {
                     if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                         var updatedFile = self.uploadedFiles[index]
                         updatedFile.isUploading = false
-                        updatedFile.errorMessage = "服务器返回错误: \(httpResponse.statusCode)"
+                        updatedFile.errorMessage = "Server returned an error: \(httpResponse.statusCode)"
                         DispatchQueue.main.async {
                             self.uploadedFiles[index] = updatedFile
                         }
                     }
                     
                     if let data = data, let errorString = String(data: data, encoding: .utf8) {
-                        print("服务器错误详情: \(errorString)")
+                        print("Server error details: \(errorString)")
                         completion(.failure(NSError(domain: "ServerError", code: httpResponse.statusCode, userInfo: ["message": errorString])))
                     } else {
                         completion(.failure(NSError(domain: "ServerError", code: httpResponse.statusCode, userInfo: nil)))
@@ -362,13 +361,13 @@ class FileUploadManager: ObservableObject {
                 }
             }
             
-            // 解析响应数据
+            // Parse response data
             guard let data = data else {
-                print("没有返回数据")
+                print("No response data")
                 if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                     var updatedFile = self.uploadedFiles[index]
                     updatedFile.isUploading = false
-                    updatedFile.errorMessage = "没有接收到响应数据"
+                    updatedFile.errorMessage = "No response Data"
                     DispatchQueue.main.async {
                         self.uploadedFiles[index] = updatedFile
                     }
@@ -377,17 +376,17 @@ class FileUploadManager: ObservableObject {
                 return
             }
             
-            // 打印返回数据以便调试
+            // Print the returned data for debugging
             if let responseString = String(data: data, encoding: .utf8) {
-                print("响应数据: \(responseString)")
+                print("Response Data: \(responseString)")
             }
             
             do {
                 if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    // 检查json结构，看id在哪个层级
+                    // Check the JSON structure to see which level the id is on.
                     if let fileId = json["id"] as? String {
-                        // 直接在顶层
-                        print("文件上传成功，ID: \(fileId)")
+                        // if it is in first level
+                        print("Upload succeed，ID: \(fileId)")
                         
                         if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                             var updatedFile = self.uploadedFiles[index]
@@ -400,8 +399,8 @@ class FileUploadManager: ObservableObject {
                         
                         completion(.success(fileId))
                     } else if let data = json["data"] as? [String: Any], let fileId = data["id"] as? String {
-                        // 在data子对象中
-                        print("文件上传成功，ID: \(fileId)")
+                        // In the data sub-object
+                        print("Upload succeed，ID: \(fileId)")
                         
                         if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                             var updatedFile = self.uploadedFiles[index]
@@ -415,42 +414,42 @@ class FileUploadManager: ObservableObject {
                         completion(.success(fileId))
                     } else {
                         // 找不到ID
-                        print("无法从响应中找到文件ID")
-                        print("完整响应: \(json)")
+                        print("File ID not found in response data")
+                        print("Response Data: \(json)")
                         
                         if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                             var updatedFile = self.uploadedFiles[index]
                             updatedFile.isUploading = false
-                            updatedFile.errorMessage = "解析响应失败，无法找到文件ID"
+                            updatedFile.errorMessage = "Fail to parse response，cannot find file ID"
                             DispatchQueue.main.async {
                                 self.uploadedFiles[index] = updatedFile
                             }
                         }
                         
-                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "无法从响应中找到文件ID"])))
+                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "Cannot find file ID"])))
                     }
                 } else {
-                    print("无法解析JSON响应")
+                    print("Cannot parse JSON response")
                     
                     if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                         var updatedFile = self.uploadedFiles[index]
                         updatedFile.isUploading = false
-                        updatedFile.errorMessage = "解析响应失败"
+                        updatedFile.errorMessage = "Fail to parse response"
                         DispatchQueue.main.async {
                             self.uploadedFiles[index] = updatedFile
                         }
                     }
                     
-                    let errorMessage = String(data: data, encoding: .utf8) ?? "无法解析响应数据"
+                    let errorMessage = String(data: data, encoding: .utf8) ?? "Fail to parse response"
                     completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": errorMessage])))
                 }
             } catch {
-                print("JSON解析错误: \(error.localizedDescription)")
+                print("Fail to parse JSON: \(error.localizedDescription)")
                 
                 if let index = self.uploadedFiles.firstIndex(where: { $0.id == file.id }) {
                     var updatedFile = self.uploadedFiles[index]
                     updatedFile.isUploading = false
-                    updatedFile.errorMessage = "解析响应失败: \(error.localizedDescription)"
+                    updatedFile.errorMessage = "Fail to parse: \(error.localizedDescription)"
                     DispatchQueue.main.async {
                         self.uploadedFiles[index] = updatedFile
                     }
@@ -462,41 +461,41 @@ class FileUploadManager: ObservableObject {
         task.resume()
     }
     
-    // 从智谱AI获取文件内容
+    // Get file content from Zhipu AI
     func getFileContent(fileId: String, apiKey: String, completion: @escaping (Result<String, Error>) -> Void) {
-        // 设置请求URL
+        // Set request URL
         guard let url = URL(string: "https://open.bigmodel.cn/api/paas/v4/files/\(fileId)/content") else {
             completion(.failure(NSError(domain: "InvalidURL", code: -1, userInfo: nil)))
             return
         }
         
-        // 创建请求
+        // Create request
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        // 设置Authorization头
+        // set Authorization header
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         
-        // 打印请求信息用于调试
-        print("获取文件内容请求:")
+        // Print request to debug
+        print("Request to get file content:")
         print("URL: \(url.absoluteString)")
         print("Headers: \(request.allHTTPHeaderFields ?? [:])")
         
-        // 发送请求
+        // Send request
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                print("获取文件内容错误: \(error.localizedDescription)")
+                print("Fail to get file content: \(error.localizedDescription)")
                 completion(.failure(error))
                 return
             }
             
-            // 打印响应状态
+            // print HTTP Response
             if let httpResponse = response as? HTTPURLResponse {
-                print("文件内容响应状态码: \(httpResponse.statusCode)")
+                print("File content response status code: \(httpResponse.statusCode)")
                 
                 if httpResponse.statusCode != 200 {
                     if let data = data, let errorString = String(data: data, encoding: .utf8) {
-                        print("服务器错误详情: \(errorString)")
+                        print("Server error: \(errorString)")
                         completion(.failure(NSError(domain: "ServerError", code: httpResponse.statusCode, userInfo: ["message": errorString])))
                     } else {
                         completion(.failure(NSError(domain: "ServerError", code: httpResponse.statusCode, userInfo: nil)))
@@ -505,58 +504,58 @@ class FileUploadManager: ObservableObject {
                 }
             }
             
-            // 解析响应数据
+            // Parse response data
             guard let data = data else {
-                print("没有返回文件内容数据")
+                print("No file content data returned")
                 completion(.failure(NSError(domain: "NoData", code: -1, userInfo: nil)))
                 return
             }
             
-            // 打印部分返回数据以便调试
+            // Print part of the returned data for debugging
             if let responsePreview = String(data: data.prefix(200), encoding: .utf8) {
-                print("文件内容响应预览: \(responsePreview)...")
+                print("File content preview: \(responsePreview)...")
             }
             
             do {
-                // 尝试解析为JSON
+                // Parse to JSON
                 if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    // 直接尝试获取content字段
+                    // Get content field
                     if let content = json["content"] as? String {
-                        print("成功获取文件内容")
+                        print("Get file content.")
                         completion(.success(content))
                         return
                     }
                     
-                    // 尝试从data字段中获取content
+                    // Try to get content from the data field
                     if let dataObj = json["data"] as? [String: Any],
                        let content = dataObj["content"] as? String {
-                        print("成功从data字段获取文件内容")
+                        print("Get content from data field")
                         completion(.success(content))
                         return
                     }
                     
-                    // 如果找不到content字段，返回整个JSON作为字符串
-                    print("未找到标准content字段，返回完整JSON")
+                    // If the "content" field cannot be found, return the entire JSON as a string.
+                    print("content field not found，return entire JSON")
                     if let jsonString = String(data: data, encoding: .utf8) {
                         completion(.success(jsonString))
                     } else {
-                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "无法从响应中获取文件内容"])))
+                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "Fail to get file content from response"])))
                     }
                 } else {
-                    // 如果不是JSON，尝试直接作为文本返回
+                    // If it is not JSON，return as text
                     if let content = String(data: data, encoding: .utf8) {
-                        print("响应不是JSON格式，作为文本返回")
+                        print("Not JSON，Return as text")
                         completion(.success(content))
                     } else {
-                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "无法解析响应数据"])))
+                        completion(.failure(NSError(domain: "ParseError", code: -1, userInfo: ["message": "Cannot parse response data"])))
                     }
                 }
             } catch {
-                print("解析文件内容错误: \(error.localizedDescription)")
+                print("Parse Error: \(error.localizedDescription)")
                 
-                // 如果JSON解析失败，尝试作为纯文本返回
+                // If it is not JSON，return as text
                 if let content = String(data: data, encoding: .utf8) {
-                    print("JSON解析失败，作为纯文本返回")
+                    print("Fail to parse JSON，return as text")
                     completion(.success(content))
                 } else {
                     completion(.failure(error))

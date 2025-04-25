@@ -8,7 +8,7 @@
 import Foundation
 import Splash
 
-/// HTML语法解析器，用于解析HTML代码
+/// HTML parser for parsing HTML code
 public struct HTMLGrammar: Grammar {
     public var delimiters: CharacterSet
     public var syntaxRules: [SyntaxRule]
@@ -22,35 +22,33 @@ public struct HTMLGrammar: Grammar {
         delimiters.remove("'")
         delimiters.remove(".")
         delimiters.remove("#")
-//        delimiters.remove(";")
-//        delimiters.remove("(")
-//        delimiters.remove(")")
+        //        delimiters.remove(";")
+        //        delimiters.remove("(")
+        //        delimiters.remove(")")
         //        delimiters.remove("=")
         self.delimiters = delimiters
         
         syntaxRules = [
-            // 注释规则放在最前面，确保注释内容不受其他规则影响
+            // Put comment rules at the forefront to ensure that comment content is not affected by other rules
             CommentRule(),
             DocTypeRule(),
-            // 数字和像素单位规则（绿色）
+            // Digital and Pixel Unit Rules (Green)
             NumberAndUnitRule(),
-            // 标签符号规则（白色）
+            // Tag Symbol Rules (White)
             TagSymbolRule(),
-
-            // 属性值规则（橙色）- 需要在属性规则之前
+            
+            // Attribute Value Rules (Orange) - Must be before the Attribute Rules
             AttributeValueRule(),
-            // 属性规则（蓝色）
+            // Attribute Rule（Blue）
             AttributeRule(),
             
-            // 标签关键字规则（紫色）
+            // Tag keyword rules (purple)
             TagKeywordRule(),
             
-            // CSS选择器规则（黄色）
+            // CSS Selector Rules (Yellow)
             CssSelectorRule(),
-
-
-
-            // 字符串规则
+            
+            // String rules
             StringRule()
         ]
     }
@@ -64,13 +62,13 @@ public struct HTMLGrammar: Grammar {
         case (">", _):
             return false
         case ("-", _), (_, "-"):
-            // 特别处理连字符，避免将HTML注释拆分成多个token
+            // Special handling of hyphens to avoid splitting HTML comments into multiple tokens
             return false
         case ("=", _), (_, "="):
-            // 等号作为一个独立的token，不与其他分隔符合并
+            // The equal sign is treated as an independent token and is not merged with other separators.
             return false
         case (":", _), (_, ":"):
-            // 冒号作为一个独立的token，不与其他分隔符合并
+            // The colon is treated as an independent token and is not merged with other separators.
             return false
         default:
             return true
@@ -80,36 +78,36 @@ public struct HTMLGrammar: Grammar {
 
 private extension HTMLGrammar {
     
-    // HTML注释规则
+    // HTML Comment Rules
     struct CommentRule: SyntaxRule {
         var tokenType: TokenType { return .comment }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
-            print("token: \(token)")
+            //            print("token: \(token)")
             
-            // 尝试检测完整的注释或部分注释
+            // Attempt to detect complete comments or partial comments
             if token.hasPrefix("<!--") && token.hasSuffix("-->") {
                 return true
             }
             
-            // 开始部分的注释标记
+            // Comment markers at the beginning section
             if token == "<!--" || token.hasPrefix("<!--") {
                 return true
             }
             
-            // 结束部分的注释标记
+            // End section comment marker
             if token == "-->" || token.hasSuffix("-->") {
                 return true
             }
             
-            // 注释内容
+            // Comment content
             let onSameLine = segment.tokens.onSameLine
             let hasOpenComment = onSameLine.contains { $0.hasPrefix("<!--") || $0 == "<!--" }
             let hasCloseComment = onSameLine.contains { $0.hasSuffix("-->") || $0 == "-->" }
             
             if hasOpenComment && !hasCloseComment {
-                // 在开始标记之后，结束标记之前的所有内容都是注释
+                // Before the start tag and after the end tag, all content is a comment.
                 if let openIndex = onSameLine.firstIndex(where: { $0.hasPrefix("<!--") || $0 == "<!--" }) {
                     let currentIndex = onSameLine.firstIndex(of: token) ?? 0
                     if currentIndex > openIndex {
@@ -123,14 +121,14 @@ private extension HTMLGrammar {
         }
     }
     
-    // 标签符号规则（白色）
+    // Tag Symbol Rules (White)
     struct TagSymbolRule: SyntaxRule {
         var tokenType: TokenType { return .custom("plain") }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
@@ -140,7 +138,7 @@ private extension HTMLGrammar {
                 return true
             }
             
-            // 单独处理等号
+            // Handle the equal sign separately
             if token == "=" {
                 return true
             }
@@ -148,9 +146,9 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check if the current token is within a comment
         private func isWithinComment(_ segment: Segment) -> Bool {
-            // 在同一行中查找注释开始和结束标记
+            // Find the start and end comments on the same line
             let tokensBefore = segment.tokens.all.prefix(while: { $0 != segment.tokens.current })
             
             let hasOpenComment = tokensBefore.contains(where: {
@@ -161,18 +159,18 @@ private extension HTMLGrammar {
                 $0.hasSuffix("-->") && !$0.hasPrefix("<!--")
             })
             
-            // 如果有开始标记但没有结束标记，则认为在注释内
+            // If there is a start tag but no end tag, it is considered to be within a comment.
             if hasOpenComment && !hasCloseComment {
                 return true
             }
             
-            // 检查当前行是否有<!--但没有-->
+            // Check if the current line has <!-- but not -->
             let onSameLine = segment.tokens.onSameLine
             let hasOpenCommentOnLine = onSameLine.contains(where: { $0.contains("<!--") })
             let hasCloseCommentOnLine = onSameLine.contains(where: { $0.contains("-->") })
             
             if hasOpenCommentOnLine && !hasCloseCommentOnLine {
-                // 检查当前token是否在注释开始之后
+                // Check if the current token is after the start of a comment
                 if let openIndex = onSameLine.firstIndex(where: { $0.contains("<!--") }),
                    let currentIndex = onSameLine.firstIndex(of: segment.tokens.current),
                    currentIndex > openIndex {
@@ -184,20 +182,19 @@ private extension HTMLGrammar {
         }
     }
     
-    // DOCTYPE规则（预处理标记）
+    // DOCTYPE rule (preprocessing tag)
     struct DocTypeRule: SyntaxRule {
         var tokenType: TokenType { return .preprocessing }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 确保它不是注释
+            // Ensure that it is not a comment.
             if token.hasPrefix("<!--") || token == "<!--" || token.contains("<!--") {
                 return false
             }
             
-            // 处理DOCTYPE声明
-            //            if token.hasPrefix("<!DOCTYPE") || token == "<!DOCTYPE" {
+            // Process the DOCTYPE declaration
             if token.hasPrefix("<!DOCTYPE") || token == "<!DOCTYPE" || token == "DOCTYPE" {
                 return true
             }
@@ -214,48 +211,48 @@ private extension HTMLGrammar {
         }
     }
     
-    // 标签关键字规则（紫色）
+    // Tag keyword rules (purple)
     struct TagKeywordRule: SyntaxRule {
         var tokenType: TokenType { return .keyword }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
             
-            // 检查是否在属性值内
+            // Check if within attribute value
             if isWithinAttributeValue(segment) {
                 return false
             }
             
-            // 标签名称，但去除<>符号
+            // Tag name, but remove <> symbols
             if let previousToken = segment.tokens.previous {
                 if previousToken == "<" {
                     return true
                 }
                 
-                // 处理结束标签的情况
+                // Handle the case of ending tags
                 if previousToken == "</" || previousToken.hasSuffix("</") {
                     return true
                 }
             }
             
-            // 处理没有空格的标签名
+            // Handle tag names without spaces
             if token.hasPrefix("<") && !token.hasPrefix("<!") && !token.hasPrefix("</") {
-                // 排除标签符号，只匹配标签名称部分
+                // Exclude tag symbols, only match the tag name part
                 return false
             }
             
-            // 处理中文标点后面跟着的结束标签
+            // Handle the end tag following Chinese punctuation.
             if let previousToken = segment.tokens.previous,
                token.hasPrefix("/") && previousToken.hasSuffix("<") {
                 return false
             }
             
-            // 处理br的情况
+            // Handle the br case
             if token == "br" {
                 return true
             }
@@ -263,19 +260,19 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check if the current token is within a comment
         private func isWithinComment(_ segment: Segment) -> Bool {
             return false
         }
         
-        // 辅助方法：检查是否在属性值内
+        // Check if within attribute value
         private func isWithinAttributeValue(_ segment: Segment) -> Bool {
-            // 检查是否在引号内
+            // Check if within quotes
             var openQuote = false
             var quoteChar: Character? = nil
             
             for token in segment.tokens.onSameLine.prefix(while: { $0 != segment.tokens.current }) {
-                // 处理引号
+                // Handle quotes
                 if token == "\"" || token == "'" {
                     if let qChar = quoteChar, qChar == token.first {
                         openQuote = !openQuote
@@ -288,7 +285,7 @@ private extension HTMLGrammar {
                     }
                 }
                 
-                // 处理包含引号的token
+                // Process tokens containing quotation marks
                 for char in token {
                     if char == "\"" || char == "'" {
                         if let qChar = quoteChar, qChar == char {
@@ -308,22 +305,22 @@ private extension HTMLGrammar {
         }
     }
     
-    // 属性规则（蓝色）
+    // Attribute Rules (Blue)
     struct AttributeRule: SyntaxRule {
         var tokenType: TokenType { return .property }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
             
             
-            // 属性名通常是独立的单词，后面跟着=
+            // Attribute names are typically single words followed by an equals sign.
             if let nextToken = segment.tokens.next, nextToken == "=" {
-                // 确保不是在标签名位置
+                // Ensure that it is not at the position of the tag name.
                 if let previousToken = segment.tokens.previous {
                     if previousToken != "<" && previousToken != "</" {
                         return true
@@ -335,17 +332,17 @@ private extension HTMLGrammar {
             }
             
             
-            // 处理属性名和等号在同一个token的情况，如"class="
+            // Handle the case where the attribute name and the equal sign are in the same token, such as "class=".
             if token.hasSuffix("=") && token != "=" {
-                // 去掉末尾的等号，检查剩余部分是否为有效的属性名
+                // Remove the trailing equals sign and check if the remaining part is a valid attribute name.
                 let attributeName = String(token.dropLast())
                 if !attributeName.isEmpty && !attributeName.contains("<") && !attributeName.contains(">") {
-                    // 只匹配属性名部分，不包含等号
+                    // Only match the part of the attribute name, not including the equal sign
                     return true
                 }
             }
             
-            // CSS属性（如margin, padding等）
+            // CSS properties (such as margin, padding, etc.)
             if isCssProperty(token) && !isWithinCssSelector(segment) {
                 return true
             }
@@ -354,9 +351,9 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查当前token是否为CSS属性
+        // Check if the current token is a CSS property
         private func isCssProperty(_ token: String) -> Bool {
-            // 常见CSS属性列表
+            // List of Common CSS Properties
             let cssProperties = [
                 "margin", "padding", "border", "color", "background", "font", "text",
                 "width", "height", "display", "position", "top", "left", "right", "bottom",
@@ -368,9 +365,9 @@ private extension HTMLGrammar {
             return cssProperties.contains(where: { token.hasPrefix($0) || token == $0 })
         }
         
-        // 辅助方法：检查是否在CSS选择器内
+        // Check if it is within a CSS selector
         private func isWithinCssSelector(_ segment: Segment) -> Bool {
-            // 在同一行检查是否存在{且在当前token之后
+            // Check on the same line for the existence of {and after the current token}
             if let tokenIndex = segment.tokens.onSameLine.firstIndex(where: { $0 == segment.tokens.current }),
                let openBraceIndex = segment.tokens.onSameLine.firstIndex(of: "{"),
                tokenIndex < openBraceIndex {
@@ -380,47 +377,40 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check if the current token is within a comment
         private func isWithinComment(_ segment: Segment) -> Bool {
-            // 同上面的实现...
             return false
         }
     }
     
-    // CSS选择器规则（黄色）
+    // CSS Selector Rules (Yellow)
     struct CssSelectorRule: SyntaxRule {
-        var tokenType: TokenType { return .call }  // 使用call类型表示黄色
+        var tokenType: TokenType { return .call }  // Use call type to represent yellow
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
             
-            //function是黄色
-            //如果前一个token是function，本token标黄色
+            //Function is yellow.
+            //If the previous token is function, this token is marked yellow.
             if let previousToken = segment.tokens.previous, previousToken == "function" {
                 return true
             }
             
-            //如果后面(，默认就是function
+            //If the following (, default is function
             if let nextToken = segment.tokens.next, nextToken == "(" {
                 return true
             }
-                
-            
-            // CSS选择器通常在样式块开始前，以及在{前面
-//            if isCssSelector(token) && isBeforeCssBlock(segment) {
-//                return true
-//            }
             
             if isCssSelector(token) {
                 return true
             }
             
-            // 处理类选择器和ID选择器
+            // Handling class selectors and ID selectors
             if (token.hasPrefix(".") || token.hasPrefix("#")) && isBeforeCssBlock(segment) {
                 return true
             }
@@ -428,9 +418,9 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查当前token是否为CSS选择器
+        // Check if the current token is a CSS selector
         private func isCssSelector(_ token: String) -> Bool {
-            // 常见HTML标签和CSS选择器
+            // Common HTML tags and CSS selectors
             let commonSelectors = [
                 "body", "html", "div", "span", "header", "footer", "main", "section",
                 "article", "nav", "aside", "p", "h1", "h2", "h3", "h4", "h5", "h6",
@@ -439,112 +429,103 @@ private extension HTMLGrammar {
                 "float", "bounce", "confetti-fall"
             ]
             
-            //            return commonSelectors.contains(token) || token.hasPrefix(".") || token.hasPrefix("#")
             return commonSelectors.contains(token) || token.hasPrefix(".") || token.hasPrefix("#") || token == "*"
         }
         
-        // 辅助方法：检查当前token是否在CSS块之前
+        // Check if the current token is before the CSS block
         private func isBeforeCssBlock(_ segment: Segment) -> Bool {
-            // 检查同一行上是否有{
+            // Check if there is a { on the same line.
             return segment.tokens.onSameLine.contains("{")
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check if the current token is within a comment
         private func isWithinComment(_ segment: Segment) -> Bool {
-            // 同上面的实现...
             return false
         }
     }
     
-    // 属性值规则（橙色）
+    // Attribute Value Rules (Orange)
     struct AttributeValueRule: SyntaxRule {
-        var tokenType: TokenType { return .string }  // 使用string类型表示橙色
+        var tokenType: TokenType { return .string }  // Use the string type to represent orange
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
             
-            // 关键修改: 如果当前token是引号中的内容，直接匹配为属性值
-//            let onSameLine = segment.tokens.onSameLine
-            
-                        // 处理 CSS 颜色值 (如 #f0f9ff)
+            // Process CSS color values (such as #f0f9ff)
             if token.contains("#") && isHexColor(token) {
-                            return true
-                        }
+                return true
+            }
             
-
-            
-            // 处理带引号的属性值
+            // Handle quoted attribute values
             if (token.hasPrefix("\"") && token.hasSuffix("\"")) ||
                 (token.hasPrefix("\'") && token.hasSuffix("\'")) {
                 return true;
             }
             
-            // 处理引号
+            // Handle quotes
             if token == "\"" || token == "\'" {
-                // 即使没有结束引号，也视为属性值的一部分
+                // Even if there is no ending quotation mark, it is considered as part of the attribute value.
                 return true;
             }
             
-            //凡是包含单引号的，都标橙色
+            //All text containing single quotes should be marked in orange.
             if token.contains("\'"){
                 return true;
             }
             
-            // 属性值在等号后面，且不是数字或单位
+            // Attribute values are after the equal sign and are not numbers or units.
             if let previousToken = segment.tokens.previous,
                previousToken == "=" || previousToken.hasSuffix("=") {
                 return true
             }
             
-                   // 新增：处理属性值中的逗号分隔项
-                   if token != "," && segment.tokens.onSameLine.contains("=") {
-                       // 检查是否在引号内
-                       var quoteOpen = false
-                       var quoteChar: Character? = nil
-                       var foundEquals = false
-            
-                       for t in segment.tokens.onSameLine.prefix(while: { $0 != token }) {
-                           if t == "\"" || t == "'" {
-                               if let qChar = quoteChar, qChar == t.first {
-                                   quoteOpen = !quoteOpen
-                                   if !quoteOpen {
-                                       quoteChar = nil
-                                   }
-                               } else if !quoteOpen {
-                                   quoteOpen = true
-                                   quoteChar = t.first
-                               }
-                           } else if t == "=" {
-                               foundEquals = true
-                           } else if t == "," {
-                               // 如果逗号在引号内且在等号后面，那么后面的token也应该是属性值的一部分
-                               return true
-                           }
-                       }
-                   }
-            
-            // CSS值，如border-box, solid等
-            if isCssValue(token) && !isNumberOrUnit(token) {
-                // 检查前面是否有冒号
+            // Process comma-separated items in attribute values
+            if token != "," && segment.tokens.onSameLine.contains("=") {
+                // Check if it is within quotes
+                var quoteOpen = false
+                var quoteChar: Character? = nil
+                var foundEquals = false
                 
-                //凡是CSS值，非数值都是橙色
+                for t in segment.tokens.onSameLine.prefix(while: { $0 != token }) {
+                    if t == "\"" || t == "'" {
+                        if let qChar = quoteChar, qChar == t.first {
+                            quoteOpen = !quoteOpen
+                            if !quoteOpen {
+                                quoteChar = nil
+                            }
+                        } else if !quoteOpen {
+                            quoteOpen = true
+                            quoteChar = t.first
+                        }
+                    } else if t == "=" {
+                        foundEquals = true
+                    } else if t == "," {
+                        // If the comma is inside the quotes and after the equal sign, then the token after it should also be part of the attribute value.
+                        return true
+                    }
+                }
+            }
+            
+            // CSS，such as border-box, solid, etc
+            if isCssValue(token) && !isNumberOrUnit(token) {
+                //All CSS values where non-numeric are orange
                 return true
             }
             
-            // 处理引号，让引号也显示为橙色
+            // Handle quotes, making the quotes also display in orange
             if token == "\"" || token == "'" {
-                // 检查前面是否有等号
+                // Check if there is an equal sign in front
                 if let previousToken = segment.tokens.previous,
                    previousToken == "=" || previousToken.hasSuffix("=") {
                     return true
                 }
                 
-                // 检查后面是否有属性值
+                // Check if there is an attribute value behind
                 if let nextToken = segment.tokens.next, nextToken != ">" && nextToken != " " &&
                     !nextToken.hasPrefix("<") && !nextToken.hasPrefix(">") {
                     return true
@@ -554,24 +535,24 @@ private extension HTMLGrammar {
             return false
         }
         
-        // 辅助方法：检查是否为十六进制颜色值
+        // Check if it is a hexadecimal color value
         private func isHexColor(_ token: String) -> Bool {
-            // 移除前缀 #
+            // Remove prefix #
             let hexPart = token.hasPrefix("#") ? String(token.dropFirst()) : token
-
-            // 检查是否是有效的十六进制颜色格式：#RGB, #RRGGBB, #RRGGBBAA 等
-            let validLengths = [3, 6, 8] // 有效的十六进制颜色长度
-
-            // 检查长度是否正确，并且所有字符都是有效的十六进制字符
+            
+            // Check if it is a valid hexadecimal color format: #RGB, #RRGGBB, #RRGGBBAA, etc.
+            let validLengths = [3, 6, 8] // Effective hexadecimal color length
+            
+            // Check if the length is correct and all characters are valid hexadecimal characters.
             return validLengths.contains(hexPart.count) &&
-                   hexPart.allSatisfy { $0.isHexDigit }
+            hexPart.allSatisfy { $0.isHexDigit }
         }
         
         
         
-        // 辅助方法：检查是否为CSS值
+        // Check if it is a CSS value
         private func isCssValue(_ token: String) -> Bool {
-            // 常见CSS值
+            // CSS Values
             let cssValues = [
                 "auto", "none", "inherit", "initial", "unset", "normal", "bold", "italic",
                 "underline", "block", "inline", "flex", "grid", "absolute", "relative",
@@ -584,76 +565,67 @@ private extension HTMLGrammar {
             
         }
         
-        // 辅助方法：检查是否为数字或单位
+        // Check if it is a number or unit
         private func isNumberOrUnit(_ token: String) -> Bool {
-            // 纯数字
+            // Pure numbers
             if token == "0" || token.allSatisfy({ $0.isNumber || $0 == "." }) {
                 return true
             }
             
-            // 带单位的数值
+            // Value with units
             let units = ["px", "s", "em", "rem", "%", "vh", "vw", "vmin", "vmax", "pt", "pc", "in", "cm", "mm", "ex", "ch"]
             return units.contains(where: { token.hasSuffix($0) && token.dropLast($0.count).allSatisfy({ $0.isNumber || $0 == "." }) })
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check whether the current token is within the comment
         private func isWithinComment(_ segment: Segment) -> Bool {
-            // 同上面的实现...
             return false
         }
     }
     
-    // 数字和像素单位规则（绿色）
+    // Number and pixel unit rules (green)
     struct NumberAndUnitRule: SyntaxRule {
-        var tokenType: TokenType { return .number }  // 使用number类型表示绿色
+        var tokenType: TokenType { return .number }  // Use the number type to represent green
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 检查是否在注释内
+            // Check if it is within the comment
             if isWithinComment(segment) {
                 return false
             }
             
-            // 通配符选择器 *
+            // Wildcard selector *
             if token == "*" && isInCssContext(segment) {
                 return true
             }
             
             
-            // 纯数字
+            // pure number
             if token == "0" || token.allSatisfy({ $0.isNumber || $0 == "." }) {
                 return true
             }
             
-            // 处理单独的百分号
+            // Handle the percentage sign individually
             if token.contains("%") {
                 return true
             }
             
-            //支持负数
-//            if token.first == "-" {
-//                let numberPart = token.dropFirst()
-//                if numberPart.allSatisfy({ $0.isNumber || $0 == "." }) {
-//                    return true
-//                }
-//            }
-
-            // 允许负号（但不能只有负号）
+            // Negative signs are allowed (but not only negative signs)
             if token.first == "-" {
                 let numberPart = token.dropFirst()
                 if numberPart.isEmpty { return false } // 仅 `"-"` 不是数字
                 return numberPart.contains(".") ? isValidDecimal(String(numberPart)) : numberPart.allSatisfy { $0.isNumber }
             }
             
-            // 带单位的数值
+            // Values with units
             let units = ["px", "em", "rem", "%", "vh", "vw", "vmin", "vmax", "pt", "pc", "in", "cm", "mm", "ex", "ch", "s", "deg"].sorted(by: { $0.count > $1.count }) // 按长度降序
-            //判断是否以某个单位结尾
+            //Determine if it ends with a certain unit
             if units.contains(where: { token.hasSuffix($0) }) {
                 
-                //token里面包含数字的
+                //The token contains numbers.
                 let unit = units.first(where: { token.hasSuffix($0) }) ?? ""
-                print("unit: \(unit)")
+                //                print("unit: \(unit)")
                 let numberPart = token.dropLast(unit.count)
                 if numberPart.allSatisfy({ $0.isNumber || $0 == "." }) {
                     return true
@@ -664,65 +636,64 @@ private extension HTMLGrammar {
             return false
         }
         
-        //检查小数格式，两个点就不是小数
+        //Check the decimal format, two dots are not a decimal.
         func isValidDecimal(_ str: String) -> Bool {
             let parts = str.split(separator: ".")
             return parts.count <= 2 && parts.allSatisfy { $0.allSatisfy { $0.isNumber } }
         }
         
-        // 辅助方法：检查是否在CSS上下文中
+        // Check if it is in the CSS context
         private func isInCssContext(_ segment: Segment) -> Bool {
-            // 检查是否在style标签内
+            // Check if it is within the style tag
             let onSameLine = segment.tokens.onSameLine
             let hasOpenBrace = onSameLine.contains("{")
             let hasCloseBrace = onSameLine.contains("}")
             
-            // 如果在同一行上有{或}，可能在CSS上下文中
+            // If there are { or } on the same line, it may be in the CSS context.
             if hasOpenBrace || hasCloseBrace {
                 return true
             }
             
-            // 检查前面的标记是否有style标签
+            // Check if there is a style tag in the previous marker.
             let allTokens = segment.tokens.all
             if let currentIndex = allTokens.firstIndex(of: segment.tokens.current) {
                 let tokensBefore = allTokens.prefix(upTo: currentIndex)
-                // 检查是否有<style>标签
+                // Check if there is a <style> tag
                 return tokensBefore.contains("style") || tokensBefore.contains("<style>")
             }
             
             return false
         }
         
-        // 辅助方法：检查当前token是否在注释内
+        // Check if the current token is within a comment
         private func isWithinComment(_ segment: Segment) -> Bool {
-            // 同上面的实现...
             return false
         }
     }
     
-    // HTML字符串规则（属性值）
+    // HTML String Rules (Attribute Values)
     struct StringRule: SyntaxRule {
         var tokenType: TokenType { return .string }
         
         func matches(_ segment: Segment) -> Bool {
             let token = segment.tokens.current
             
-            // 如果已经被其他规则匹配，则跳过
+            // If it has already been matched by other rules, skip.
             if segment.tokens.previous == "=" || isNumberOrUnit(token) {
                 return false
             }
             
-            // 双引号或单引号字符串
+            // Double quotes or single quotes string
             if (token.hasPrefix("\"") && token.hasSuffix("\"")) ||
                 (token.hasPrefix("'") && token.hasSuffix("'")) {
                 return true
             }
             
-            // 检查是否在字符串内部
+            // Check if it is within the string
             return isWithinHTMLString(segment)
         }
         
-        // 辅助函数：检查是否在HTML字符串内
+        // Check if it is within the HTML string
         private func isWithinHTMLString(_ segment: Segment) -> Bool {
             var doubleQuoteCount = 0
             var singleQuoteCount = 0
@@ -739,18 +710,18 @@ private extension HTMLGrammar {
                 }
             }
             
-            // 字符串被视为"未闭合"，如果引号数量是奇数
+            // The string is considered "unclosed" if the number of quotation marks is odd.
             return doubleQuoteCount % 2 != 0 || singleQuoteCount % 2 != 0
         }
         
-        // 辅助方法：检查是否为数字或单位
+        // Check if it is a number or unit
         private func isNumberOrUnit(_ token: String) -> Bool {
-            // 纯数字
+            // pure number
             if token.allSatisfy({ $0.isNumber || $0 == "." }) {
                 return true
             }
             
-            // 带单位的数值
+            // Values with units
             let units = ["px", "em", "rem", "%", "vh", "vw", "vmin", "vmax", "pt", "pc", "in", "cm", "mm", "ex", "ch"]
             return units.contains(where: { token.hasSuffix($0) && token.dropLast($0.count).allSatisfy({ $0.isNumber || $0 == "." }) })
         }

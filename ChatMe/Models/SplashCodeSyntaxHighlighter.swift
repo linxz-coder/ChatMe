@@ -3,7 +3,7 @@ import Splash
 import SwiftUI
 
 struct SplashCodeSyntaxHighlighter: CodeSyntaxHighlighter {
-    private let theme: Splash.Theme  // 存储主题
+    private let theme: Splash.Theme  // Save theme
     
     init(theme: Splash.Theme) {
         self.theme = theme
@@ -14,17 +14,17 @@ struct SplashCodeSyntaxHighlighter: CodeSyntaxHighlighter {
             return Text(content)
         }
         
-        print("高亮代码语言: \(language)")
+        print("Hightlight code language: \(language)")
         
-        // HTML注释预处理
+        // HTML Comment Preprocessing
         var processedContent = content
         if ["html", "xml", "xhtml", "svg"].contains(language.lowercased()) {
-            // 使用正则表达式查找所有HTML注释
+            // Use regular expressions to find all HTML comments
             processedContent = preprocessHTMLComments(content)
         }
         
         
-        // 根据语言选择不同的Grammar
+        // Choose different Grammar based on language
         let grammar: Grammar
         switch language.lowercased() {
         case "html", "xml", "xhtml", "svg", "css", "javascript":
@@ -33,7 +33,7 @@ struct SplashCodeSyntaxHighlighter: CodeSyntaxHighlighter {
             grammar = SwiftGrammar()
         }
         
-        // 创建一个新的高亮器，使用选定的语法
+        // Create a new highlighter using the selected syntax
         let syntaxHighlighter = SyntaxHighlighter(
             format: TextOutputFormat(theme: theme),
             grammar: grammar
@@ -42,9 +42,9 @@ struct SplashCodeSyntaxHighlighter: CodeSyntaxHighlighter {
         return syntaxHighlighter.highlight(processedContent)
     }
     
-    // 预处理HTML注释，确保它们被视为单个单元
+    // Preprocess HTML comments to ensure they are treated as a single unit.
     private func preprocessHTMLComments(_ html: String) -> String {
-        // 简单的实现：用特殊标记替换注释，以便它们被视为单个token
+        // Simple implementation: Replace annotations with special tags so that they are treated as a single token
         let pattern = "<!--[\\s\\S]*?-->"
         let regex = try? NSRegularExpression(pattern: pattern)
         

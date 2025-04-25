@@ -5,7 +5,6 @@
 
 import Foundation
 
-
 let defaults = UserDefaults.standard
 var initializing = false
 
@@ -50,27 +49,27 @@ class ModelSettingsData: ObservableObject {
             
             if initializing { return }
             
-            // 保存旧模型的编辑内容
+            // Save the editing content of the old model
             if let oldModel = oldValue, oldModel.id != selectedModel?.id {
                 var updatedOldModel = oldModel
                 updatedOldModel.name = self.modelName
                 updatedOldModel.apiKey = self.apiKey
                 updatedOldModel.baseUrl = self.baseURL
-                // 找到旧模型在数组中的索引，直接更新
+                // Find the index of the old model in the array and update it directly.
                 if let index = savedModels.firstIndex(where: { $0.id == oldModel.id }) {
                     savedModels[index] = updatedOldModel
-                    print("保存旧模型到索引 \(index): \(updatedOldModel.providerName)")
+                    print("Save old model to index \(index): \(updatedOldModel.providerName)")
                 }
             }
             
             if let model = selectedModel {
-                // 先从 savedModels 获取最新版本的模型
+                // Get the most updated models from savedModels
                 if let index = savedModels.firstIndex(where: { $0.id == model.id }) {
                     let latestModel = savedModels[index]
                     self.apiKey = latestModel.apiKey
                     self.baseURL = latestModel.baseUrl
                     self.modelName = latestModel.name
-                    print("从 savedModels 加载最新版本: \(latestModel.providerName)")
+                    print("Get the most updated models from savedModels: \(latestModel.providerName)")
                 } else {
                     self.apiKey = model.apiKey
                     self.baseURL = model.baseUrl
@@ -97,7 +96,7 @@ class ModelSettingsData: ObservableObject {
         }
     }
     
-    //代理设置
+    //Proxy settings
     @Published var proxyURL: String = "" {
         didSet {
             defaults.set(proxyURL, forKey: UserDefaultsKeys.proxyURL)
@@ -108,22 +107,15 @@ class ModelSettingsData: ObservableObject {
         
         initializing = true
         
-        // 加载代理URL设置
+        // Load proxy URL
         if let savedProxyURL = defaults.string(forKey: UserDefaultsKeys.proxyURL) {
             self.proxyURL = savedProxyURL
         } else {
-            self.proxyURL = "http://127.0.0.1:1087"  // 默认代理设置
+            self.proxyURL = "http://127.0.0.1:1087"  // Default proxy settings
             defaults.set(self.proxyURL, forKey: UserDefaultsKeys.proxyURL)
         }
         
-        
         loadSavedModels()
-        
-        // 临时：清除所有"DeepSeek Chat"和"DeepSeek Reasoner"模型
-        //        savedModels.removeAll(where: {
-        //            $0.providerName == "DeepSeek" &&
-        //            ($0.name == "DeepSeek Chat" || $0.name == "DeepSeek Reasoner")
-        //        })
         
         ensureNewModelsExist()
         
@@ -151,7 +143,6 @@ class ModelSettingsData: ObservableObject {
     }
     
     func ensureNewModelsExist(){
-        // 结构改为[提供商名称, 基础URL, 模型名称数组]
         let defaultModels: [(String, String, [String])] = [
             ("Anthropic", "https://api.anthropic.com/v1/messages", ["claude-3-7-sonnet-20250219"]),
             ("OpenAI", "https://api.openai.com/v1/chat/completions", ["gpt-4o-mini"]),
@@ -168,23 +159,12 @@ class ModelSettingsData: ObservableObject {
         
         var modelsChanged = false
         
-        // Check if each default model exists, add if not
-        //        for (providerName, baseUrl) in defaultModels {
-        //            if !savedModels.contains(where: { $0.providerName == providerName }) {
-        //                print("Adding missing model: \(providerName)")
-        //                           let modelType: ModelType = providerName == "DALL-E-3" ? .image : .chat
-        //                           let newModel = Model(providerName: providerName, name: "", baseUrl: baseUrl, apiKey: "", isThinkingEnabled: false, modelType: modelType)
-        //                savedModels.append(newModel)
-        //                modelsChanged = true
-        //            }
-        //        }
-        
-        // 遍历每个提供商及其模型
+        // Map providers and their models
         for (providerName, baseUrl, modelNames) in defaultModels {
-            // 确定模型类型
+            // Get model type
             let modelType: ModelType = providerName == "DALL-E-3" ? .image : .chat
             
-            // 如果模型名数组为空或只包含空字符串，添加一个默认模型
+            // If the model name array is empty or only contains empty strings, add a default model.
             if modelNames.isEmpty || (modelNames.count == 1 && modelNames[0].isEmpty) {
                 if !savedModels.contains(where: { $0.providerName == providerName && $0.name.isEmpty }) {
                     print("Adding default model for provider: \(providerName)")
@@ -193,13 +173,13 @@ class ModelSettingsData: ObservableObject {
                     modelsChanged = true
                 }
             } else {
-                // 添加所有指定的模型
+                // Add all specified models
                 for modelName in modelNames {
-                    // 检查该模型是否存在
+                    // Check if the model exists
                     if !savedModels.contains(where: { $0.providerName == providerName && $0.name == modelName }) {
                         print("Adding model: \(providerName) - \(modelName)")
                         
-                        // 特殊处理Claude Thinking模型
+                        // Special treatment of Claude Thinking model
                         let isThinking = modelName.contains("Thinking")
                         
                         let newModel = Model(
@@ -223,7 +203,7 @@ class ModelSettingsData: ObservableObject {
         
     }
     
-    // 更新保存的模型列表中的特定模型
+    // Update the list of saved models to include a specific model
     private func updateModelInSavedModels(_ model: Model) {
         if let index = savedModels.firstIndex(where: { $0.id == model.id }) {
             savedModels[index] = model
@@ -236,13 +216,13 @@ class ModelSettingsData: ObservableObject {
         }
     }
     
-    // 判断当前模型是否需要使用代理
+    // Check whether the current model needs to use proxy
     func shouldUseProxy() -> Bool {
         guard let model = selectedModel else { return false }
         return model.providerName == "Anthropic" || model.providerName == "OpenAI"
     }
     
-    // 获取代理配置
+    // Get proxy configuration
     func getProxyConfiguration() -> URLSessionConfiguration? {
         if !shouldUseProxy() || proxyURL.isEmpty {
             return nil
