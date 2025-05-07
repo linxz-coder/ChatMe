@@ -190,6 +190,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
     func streamAnswer(requestURL: String, apiKey: String, requestModel: String, systemMessage: String = "You are a helpful assistant", userMessage: String, userMessageWithoutFile: String = "", enableWebSearch: Bool = false) {
         
         var chatHistoryString = ""
+        self.searchReferences = [] //init references
         
         // Check the current selected model type
         if let selectedModel = modelSettings.selectedModel, selectedModel.modelType == .image {
@@ -198,53 +199,186 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             return
         }
         
-        // Get History messages
-        do {
+        // Get chat history
+        let messages = currentSession!.messages
+        
+        // Clear History
+        var formattedHistory = ""
+        // Get the most recent 10 messages
+        let recentMessages = messages.sorted(by: { $0.sequence < $1.sequence }).suffix(10)
+        
+        for message in recentMessages {
+            let role = message.character == "user" ? "用户" : "AI"
+            formattedHistory += "\(role): \(message.chat_content)\n"
+        }
+        
+        chatHistoryString = formattedHistory
+        
+        // Add tavily Search
+        // 检查是否启用Web搜索并且不是腾讯混元模型（因为它有自己的搜索功能）
+        let providerName = getProviderNameFromURL(requestURL)
+        let shouldUseTavilySearch = enableWebSearch && providerName != "腾讯混元"
+        
+        if shouldUseTavilySearch {
+            let tavilyURL = "https://api.tavily.com/search"
+//            let tavilyKey = "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"
+            let tavilyKey = UserDefaults.standard.string(forKey: "tavilyApiKey") ?? ""
+            guard let url = URL(string: tavilyURL) else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(tavilyKey)", forHTTPHeaderField: "Authorization")
             
-            let messages = currentSession!.messages
+            let postData = [
+                "query": userMessage,
+                "topic": "general",
+                "search_depth": "basic",
+                "chunks_per_source": 3,
+                "max_results": 5,
+                "days": 7,
+                "include_answer": true,
+                "include_raw_content": false,
+                "include_images": false,
+                "include_image_descriptions": false,
+                "include_domains": [],
+                "exclude_domains": []
+            ] as [String : Any]
             
-            // Clear History
-            var formattedHistory = ""
-            // Get the most recent 10 messages
-            let recentMessages = messages.sorted(by: { $0.sequence < $1.sequence }).suffix(10)
-            
-            for message in recentMessages {
-                let role = message.character == "user" ? "用户" : "AI"
-                formattedHistory += "\(role): \(message.chat_content)\n"
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: postData) else {
+                print("Failed to convert data to JSON")
+                return
             }
             
-            chatHistoryString = formattedHistory
+            request.httpBody = jsonData
             
-            // Add user message
-            let messageToAdd = userMessageWithoutFile.isEmpty ? userMessage : userMessageWithoutFile
-            
-            // Continue processing, pass the history into the API call
-            DispatchQueue.main.async {
-                self.continueStreamAnswerWithHistory(
-                    requestURL: requestURL,
-                    apiKey: apiKey,
-                    requestModel: requestModel,
-                    systemMessage: systemMessage,
-                    userMessage: userMessage,
-                    chatHistory: chatHistoryString,
-                    enableWebSearch: enableWebSearch
-                )
+            // 创建一个单独的URLSession用于Tavily请求
+            let tavilySession = URLSession(configuration: .default)
+            let tavilyTask = tavilySession.dataTask(with: request) { [weak self] data, response, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Tavily API error: \(error.localizedDescription)")
+                    // 出现错误时继续使用原始用户消息
+                    self.continueStreamAnswerWithHistory(
+                        requestURL: requestURL,
+                        apiKey: apiKey,
+                        requestModel: requestModel,
+                        systemMessage: systemMessage,
+                        userMessage: userMessage,
+                        chatHistory: chatHistoryString,
+                        enableWebSearch: enableWebSearch
+                    )
+                    return
+                }
+                
+                guard let data = data else {
+                    print("No data received from Tavily API")
+                    // 没有数据时继续使用原始用户消息
+                    self.continueStreamAnswerWithHistory(
+                        requestURL: requestURL,
+                        apiKey: apiKey,
+                        requestModel: requestModel,
+                        systemMessage: systemMessage,
+                        userMessage: userMessage,
+                        chatHistory: chatHistoryString,
+                        enableWebSearch: enableWebSearch
+                    )
+                    return
+                }
+                
+                do {
+                    // 解析Tavily响应
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let answer = json["answer"] as? String {
+                        print("Tavily answer received: \(answer)")
+                        
+                        // 创建SearchReference数组来存储Tavily结果
+                        var tavilyReferences: [SearchReference] = []
+                        
+                        // 打印reference
+                        if let results = json["results"] as? [[String: Any]] {
+                            print("搜索结果详情:")
+                            for (index, result) in results.enumerated() {
+                                if let title = result["title"] as? String,
+                                   let url = result["url"] as? String,
+                                   let content = result["content"] as? String {
+                                    print("结果 #\(index + 1):")
+                                    print("  标题: \(title)")
+                                    print("  URL: \(url)")
+                                    print("  内容: \(content)")
+                                    // 创建SearchReference对象
+                                    let reference = SearchReference(
+                                        index: index + 1,
+                                        title: title,
+                                        url: url
+                                    )
+                                    tavilyReferences.append(reference)
+                                }
+                            }
+                            
+                            // 将搜索引用保存到ViewModel中
+                            DispatchQueue.main.async {
+                                self.searchReferences = tavilyReferences
+                            }
+                        }
+                        
+                        // 使用搜索结果增强用户消息
+                        let enhancedUserMessage = "用户问题: \(userMessage)\n\n网络搜索结果: \(answer)"
+                        
+                        // 使用增强后的消息继续
+                        self.continueStreamAnswerWithHistory(
+                            requestURL: requestURL,
+                            apiKey: apiKey,
+                            requestModel: requestModel,
+                            systemMessage: systemMessage,
+                            userMessage: enhancedUserMessage,
+                            chatHistory: chatHistoryString,
+                            enableWebSearch: enableWebSearch
+                        )
+                    } else {
+                        print("Invalid JSON format from Tavily API")
+                        // JSON格式无效时继续使用原始用户消息
+                        self.continueStreamAnswerWithHistory(
+                            requestURL: requestURL,
+                            apiKey: apiKey,
+                            requestModel: requestModel,
+                            systemMessage: systemMessage,
+                            userMessage: userMessage,
+                            chatHistory: chatHistoryString,
+                            enableWebSearch: enableWebSearch
+                        )
+                    }
+                } catch {
+                    print("Failed to parse Tavily API response: \(error.localizedDescription)")
+                    // 解析错误时继续使用原始用户消息
+                    self.continueStreamAnswerWithHistory(
+                        requestURL: requestURL,
+                        apiKey: apiKey,
+                        requestModel: requestModel,
+                        systemMessage: systemMessage,
+                        userMessage: userMessage,
+                        chatHistory: chatHistoryString,
+                        enableWebSearch: enableWebSearch
+                    )
+                }
             }
-        } catch {
-            print("Fail to get messages history: \(error.localizedDescription)")
-            // When an error occurs, also add a user message and continue.
-            let messageToAdd = userMessageWithoutFile.isEmpty ? userMessage : userMessageWithoutFile
             
-            self.continueStreamAnswerWithHistory(
+            print("Making Tavily request...")
+            tavilyTask.resume()
+            
+        } else {
+            // 如果不需要使用Tavily搜索，直接继续处理
+            continueStreamAnswerWithHistory(
                 requestURL: requestURL,
                 apiKey: apiKey,
                 requestModel: requestModel,
                 systemMessage: systemMessage,
                 userMessage: userMessage,
-                chatHistory: "",
+                chatHistory: chatHistoryString,
                 enableWebSearch: enableWebSearch
             )
         }
+        
     }
     
     // sync chatMessages and the messages in SwiftData
@@ -289,7 +423,7 @@ class ChatViewModel: NSObject, ObservableObject, URLSessionDataDelegate {
             self.responseText = ""
             self.errorMessage = ""
             self.thinkingText = ""
-            self.searchReferences = []
+            //            self.searchReferences = []
             self.isLoading = true
             self.isAnswering = true
             self.chatMessages.append(aiMessage)

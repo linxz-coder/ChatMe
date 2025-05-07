@@ -44,3 +44,5 @@
 "comingSoon" = "功能未开发";
 "proxyUrl" = "代理URL";
 "proxyNote" = "注意：代理仅用于Anthropic和OpenAI API";
+"searchPlugin" = "搜索插件设置";
+"provideTavilyKey" = "提供 Tavily API 密钥以启用网络搜索功能";

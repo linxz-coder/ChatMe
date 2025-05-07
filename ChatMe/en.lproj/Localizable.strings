@@ -44,3 +44,5 @@
 "comingSoon" = "Coming Soon...";
 "proxyUrl" = "Proxy URL";
 "proxyNote" = "Note: The proxy is only used for Anthropic and OpenAI API";
+"searchPlugin" = "Search Plugin Settings";
+"provideTavilyKey" = "Provide the Tavily API key to enable the web search feature";
